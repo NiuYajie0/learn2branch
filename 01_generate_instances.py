@@ -249,7 +249,7 @@ def generate_setcover(nrows, ncols, density, filename, rng, max_coef=100):
         file.write("".join([f" x{j+1}" for j in range(ncols)]))
 
 
-def generate_cauctions(random, filename, n_items=100, n_bids=500, min_value=1, max_value=100,
+def generate_cauctions(rng, filename, n_items=100, n_bids=500, min_value=1, max_value=100,
                        value_deviation=0.5, add_item_prob=0.9, max_n_sub_bids=5,
                        additivity=0.2, budget_factor=1.5, resale_factor=0.5,
                        integers=False, warnings=False):
@@ -263,8 +263,8 @@ def generate_cauctions(random, filename, n_items=100, n_bids=500, min_value=1, m
 
     Parameters
     ----------
-    random : numpy.random.RandomState
-        A random number generator.
+    rng : numpy.random.RandomState
+        (modified by Chen Peng) A random number generator.
     filename : str
         Path to the file to save.
     n_items : int
@@ -296,17 +296,17 @@ def generate_cauctions(random, filename, n_items=100, n_bids=500, min_value=1, m
     assert min_value >= 0 and max_value >= min_value
     assert add_item_prob >= 0 and add_item_prob <= 1
 
-    def choose_next_item(bundle_mask, interests, compats, add_item_prob, random):
+    def choose_next_item(bundle_mask, interests, compats, add_item_prob, rng):
         n_items = len(interests)
         prob = (1 - bundle_mask) * interests * compats[bundle_mask, :].mean(axis=0)
         prob /= prob.sum()
-        return random.choice(n_items, p=prob)
+        return rng.choice(n_items, p=prob)
 
     # common item values (resale price)
-    values = min_value + (max_value - min_value) * random.rand(n_items)
+    values = min_value + (max_value - min_value) * rng.random(n_items)
 
     # item compatibilities
-    compats = np.triu(random.rand(n_items, n_items), k=1)
+    compats = np.triu(rng.random((n_items, n_items)), k=1)
     compats = compats + compats.transpose()
     compats = compats / compats.sum(1)
 
@@ -317,7 +317,7 @@ def generate_cauctions(random, filename, n_items=100, n_bids=500, min_value=1, m
     while len(bids) < n_bids:
 
         # bidder item values (buy price) and interests
-        private_interests = random.rand(n_items)
+        private_interests = rng.random(n_items)
         private_values = values + max_value * value_deviation * (2 * private_interests - 1)
 
         # substitutable bids of this bidder
@@ -325,16 +325,16 @@ def generate_cauctions(random, filename, n_items=100, n_bids=500, min_value=1, m
 
         # generate initial bundle, choose first item according to bidder interests
         prob = private_interests / private_interests.sum()
-        item = random.choice(n_items, p=prob)
+        item = rng.choice(n_items, p=prob)
         bundle_mask = np.full(n_items, 0)
         bundle_mask[item] = 1
 
         # add additional items, according to bidder interests and item compatibilities
-        while random.rand() < add_item_prob:
+        while rng.random() < add_item_prob:
             # stop when bundle full (no item left)
             if bundle_mask.sum() == n_items:
                 break
-            item = choose_next_item(bundle_mask, private_interests, compats, add_item_prob, random)
+            item = choose_next_item(bundle_mask, private_interests, compats, add_item_prob, rng)
             bundle_mask[item] = 1
 
         bundle = np.nonzero(bundle_mask)[0]
@@ -363,7 +363,7 @@ def generate_cauctions(random, filename, n_items=100, n_bids=500, min_value=1, m
 
             # add additional items, according to bidder interests and item compatibilities
             while bundle_mask.sum() < len(bundle):
-                item = choose_next_item(bundle_mask, private_interests, compats, add_item_prob, random)
+                item = choose_next_item(bundle_mask, private_interests, compats, add_item_prob, rng)
                 bundle_mask[item] = 1
 
             sub_bundle = np.nonzero(bundle_mask)[0]
@@ -440,7 +440,7 @@ def generate_cauctions(random, filename, n_items=100, n_bids=500, min_value=1, m
             file.write(f" x{i+1}")
 
 
-def generate_capacited_facility_location(random, filename, n_customers, n_facilities, ratio):
+def generate_capacited_facility_location(rng, filename, n_customers, n_facilities, ratio):
     """
     Generate a Capacited Facility Location problem following
         Cornuejols G, Sridharan R, Thizy J-M (1991)
@@ -451,8 +451,8 @@ def generate_capacited_facility_location(random, filename, n_customers, n_facili
 
     Parameters
     ----------
-    random : numpy.random.RandomState
-        A random number generator.
+    rng : numpy.random.Generator
+       (modified by Chen Peng)  A random number generator.
     filename : str
         Path to the file to save.
     n_customers: int
