@@ -226,7 +226,7 @@ def generate_setcover(nrows, ncols, density, filename, rng, max_coef=100):
         indptr.append(i)
 
     # objective coefficients
-    c = rng.randint(max_coef, size=ncols) + 1
+    c = rng.integers(max_coef, size=ncols) + 1
 
     # sparce CSC to sparse CSR matrix
     A = scipy.sparse.csc_matrix(
@@ -462,16 +462,16 @@ def generate_capacited_facility_location(random, filename, n_customers, n_facili
     ratio: float
         The desired capacity / demand ratio.
     """
-    c_x = rng.rand(n_customers)
-    c_y = rng.rand(n_customers)
+    c_x = rng.random(n_customers)
+    c_y = rng.random(n_customers)
 
-    f_x = rng.rand(n_facilities)
-    f_y = rng.rand(n_facilities)
+    f_x = rng.random(n_facilities)
+    f_y = rng.random(n_facilities)
 
-    demands = rng.randint(5, 35+1, size=n_customers)
-    capacities = rng.randint(10, 160+1, size=n_facilities)
-    fixed_costs = rng.randint(100, 110+1, size=n_facilities) * np.sqrt(capacities) \
-            + rng.randint(90+1, size=n_facilities)
+    demands = rng.integers(5, 35+1, size=n_customers)
+    capacities = rng.integers(10, 160+1, size=n_facilities)
+    fixed_costs = rng.integers(100, 110+1, size=n_facilities) * np.sqrt(capacities) \
+            + rng.integers(90+1, size=n_facilities)
     fixed_costs = fixed_costs.astype(int)
 
     total_demand = demands.sum()
@@ -513,7 +513,7 @@ def generate_capacited_facility_location(random, filename, n_customers, n_facili
         file.write("\nbinary\n")
         file.write("".join([f" y_{j+1}" for j in range(n_facilities)]))
 
-
+#%%
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument(
@@ -529,7 +529,7 @@ if __name__ == '__main__':
     )
     args = parser.parse_args()
 
-    rng = np.random.RandomState(args.seed)
+    rng = np.random.default_rng(args.seed)
 
     if args.problem == 'setcover':
         nrows = 500
