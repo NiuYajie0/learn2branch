@@ -23,7 +23,7 @@ class SamplingAgent(scip.Branchrule):
         self.out_dir = out_dir
         self.follow_expert = follow_expert
 
-        self.rng = np.random.RandomState(seed)
+        self.rng = np.random.default_rng(seed)
         self.new_node = True
         self.sample_counter = 0
 
@@ -37,7 +37,7 @@ class SamplingAgent(scip.Branchrule):
             utilities.extract_khalil_variable_features(self.model, [], self.khalil_root_buffer)
 
         # once in a while, also run the expert policy and record the (state, action) pair
-        query_expert = self.rng.rand() < self.query_expert_prob
+        query_expert = self.rng.random() < self.query_expert_prob
         if query_expert:
             state = utilities.extract_state(self.model)
             cands, *_ = self.model.getPseudoBranchCands()
@@ -179,12 +179,12 @@ def send_orders(orders_queue, instances, seed, exploration_policy, query_expert_
     out_dir: str
         Output directory in which to write samples.
     """
-    rng = np.random.RandomState(seed)
+    rng = np.random.default_rng(seed)
 
     episode = 0
     while True:
         instance = rng.choice(instances)
-        seed = rng.randint(2**32)
+        seed = rng.integers(2**32)
         orders_queue.put([episode, instance, seed, exploration_policy, query_expert_prob, time_limit, out_dir])
         episode += 1
 
@@ -236,7 +236,7 @@ def collect_samples(instances, out_dir, rng, n_samples, n_jobs,
     # start dispatcher
     dispatcher = mp.Process(
             target=send_orders,
-            args=(orders_queue, instances, rng.randint(2**32), exploration_policy, query_expert_prob, time_limit, tmp_samples_dir),
+            args=(orders_queue, instances, rng.integers(2**32), exploration_policy, query_expert_prob, time_limit, tmp_samples_dir),
             daemon=True)
     dispatcher.start()
 
@@ -357,19 +357,19 @@ if __name__ == '__main__':
     # create output directory, throws an error if it already exists
     os.makedirs(out_dir)
 
-    rng = np.random.RandomState(args.seed)
+    rng = np.random.default_rng(args.seed)
     collect_samples(instances_train, out_dir + '/train', rng, train_size,
                     args.njobs, exploration_policy=exploration_strategy,
                     query_expert_prob=node_record_prob,
                     time_limit=time_limit)
 
-    rng = np.random.RandomState(args.seed + 1)
+    rng = np.random.default_rng(args.seed + 1)
     collect_samples(instances_valid, out_dir + '/valid', rng, test_size,
                     args.njobs, exploration_policy=exploration_strategy,
                     query_expert_prob=node_record_prob,
                     time_limit=time_limit)
 
-    rng = np.random.RandomState(args.seed + 2)
+    rng = np.random.default_rng(args.seed + 2)
     collect_samples(instances_test, out_dir + '/test', rng, test_size,
                     args.njobs, exploration_policy=exploration_strategy,
                     query_expert_prob=node_record_prob,
