@@ -767,7 +767,7 @@ if __name__ == '__main__':
         ratios = []
 
         # train instances
-        n = 10000
+        n = 100
         lp_dir = f'data/instances/facilities/train_{number_of_customers}_{number_of_facilities}_{ratio}'
         print(f"{n} instances in {lp_dir}")
         os.makedirs(lp_dir)
@@ -777,7 +777,7 @@ if __name__ == '__main__':
         ratios.extend([ratio] * n)
 
         # validation instances
-        n = 2000
+        n = 20
         lp_dir = f'data/instances/facilities/valid_{number_of_customers}_{number_of_facilities}_{ratio}'
         print(f"{n} instances in {lp_dir}")
         os.makedirs(lp_dir)
@@ -787,7 +787,7 @@ if __name__ == '__main__':
         ratios.extend([ratio] * n)
 
         # small transfer instances
-        n = 100
+        n = 10
         number_of_customers = 100
         number_of_facilities = 100
         lp_dir = f'data/instances/facilities/transfer_{number_of_customers}_{number_of_facilities}_{ratio}'
@@ -799,7 +799,7 @@ if __name__ == '__main__':
         ratios.extend([ratio] * n)
 
         # medium transfer instances
-        n = 100
+        n = 10
         number_of_customers = 200
         lp_dir = f'data/instances/facilities/transfer_{number_of_customers}_{number_of_facilities}_{ratio}'
         print(f"{n} instances in {lp_dir}")
@@ -810,7 +810,7 @@ if __name__ == '__main__':
         ratios.extend([ratio] * n)
 
         # big transfer instances
-        n = 100
+        n = 10
         number_of_customers = 400
         lp_dir = f'data/instances/facilities/transfer_{number_of_customers}_{number_of_facilities}_{ratio}'
         print(f"{n} instances in {lp_dir}")
@@ -821,7 +821,7 @@ if __name__ == '__main__':
         ratios.extend([ratio] * n)
 
         # test instances
-        n = 2000
+        n = 20
         number_of_customers = 100
         number_of_facilities = 100
         lp_dir = f'data/instances/facilities/test_{number_of_customers}_{number_of_facilities}_{ratio}'
