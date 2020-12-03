@@ -246,14 +246,14 @@ def collect_samples(instances, out_dir, rng, n_samples, n_jobs,
     i = 0
     in_buffer = 0
     while i < n_samples:
-        status = answers_queue.get()
+        sample = answers_queue.get()
 
         # add received sample to buffer
-        if status['type'] == 'start':
-            buffer[status['episode']] = []
+        if sample['type'] == 'start':
+            buffer[sample['episode']] = []
         else:
-            buffer[status['episode']].append(status)
-            if status['type'] == 'sample':
+            buffer[sample['episode']].append(sample)
+            if sample['type'] == 'sample':
                 in_buffer += 1
 
         # if any, write samples from current episode
@@ -270,10 +270,6 @@ def collect_samples(instances, out_dir, rng, n_samples, n_jobs,
 
                 # else write sample
                 else:
-
-                    # 就是改了个名
-                    # in SamplingAgent.branchexeclp: filename = f'{self.out_dir}/sample_{self.episode}_{self.sample_counter}.pkl'
-                    # now changed to: f'{out_dir}/sample_{i+1}.pkl'
                     os.rename(sample['filename'], f'{out_dir}/sample_{i+1}.pkl')
                     in_buffer -= 1
                     i += 1
@@ -319,9 +315,9 @@ if __name__ == '__main__':
 
     print(f"seed {args.seed}")
 
-    train_size = 1000
-    valid_size = 200
-    test_size = 200
+    train_size = 100000
+    valid_size = 20000
+    test_size = 20000
     exploration_strategy = 'pscost'
     node_record_prob = 0.05
     time_limit = 3600

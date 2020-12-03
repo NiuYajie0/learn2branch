@@ -5,45 +5,13 @@
     "version": "0.2.0",
     "configurations": [
         
-
         {
             "name": "Python: Current File",
             "type": "python",
             "request": "launch",
             "program": "${file}",
-            "console": "integratedTerminal"
-        },
-        {
-            "name": "01 - Generate Instances",
-            "type": "python",
-            "request": "launch",
-            "program": "01_generate_instances.py",
             "console": "integratedTerminal",
-            "args": [
-                "facilities",
-            ],
-        },
-        {
-            "name": "02 - Generate Dataset",
-            "type": "python",
-            "request": "launch",
-            "program": "02_generate_dataset.py",
-            "console": "integratedTerminal",
-            "args": [
-                "facilities",
-                "-j 10"
-            ],
-        },
-        {
-            "name": "03 - Train Competitor",
-            "type": "python",
-            "request": "launch",
-            "program": "03_train_competitor.py",
-            "console": "integratedTerminal",
-            "args": [
-                "facilities",
-                "-m","extratrees",
-            ],
-        },
+            "args":["setcover"]
+        }
     ]
 }
