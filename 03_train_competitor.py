@@ -94,7 +94,7 @@ if __name__ == '__main__':
         feat_augment = True
         label_type = 'bipartite_ranks'
 
-    rng = np.random.RandomState(args.seed)
+    rng = np.random.default_rng(args.seed)
 
     running_dir = f"trained_models/{args.problem}/{args.model}_{feat_type}/{args.seed}"
     os.makedirs(running_dir)
@@ -151,7 +151,7 @@ if __name__ == '__main__':
         # Training
         model = ExtraTreesRegressor(
             n_estimators=100,
-            random_state=rng,)
+            random_state=rng.integers(100),)
         model.verbose = True
         model.fit(train_x, train_y)
         model.verbose = False
@@ -171,7 +171,7 @@ if __name__ == '__main__':
         valid_qids = np.repeat(np.arange(len(valid_ncands)), valid_ncands)
 
         # Training
-        model = pyltr.models.LambdaMART(verbose=1, random_state=rng, n_estimators=500)
+        model = pyltr.models.LambdaMART(verbose=1, random_state=rng.integers(100), n_estimators=500)
         model.fit(train_x, train_y, train_qids,
             monitor=pyltr.models.monitors.ValidationMonitor(
                 valid_x, valid_y, valid_qids, metric=model.metric))
@@ -185,7 +185,7 @@ if __name__ == '__main__':
         log(f"Validation log-NDCG: {np.log(loss)}", logfile)
 
     elif args.model == 'svmrank':
-        import svmrank
+        from sklearn import svm as svmrank
 
         train_qids = np.repeat(np.arange(len(train_ncands)), train_ncands)
         valid_qids = np.repeat(np.arange(len(valid_ncands)), valid_ncands)
