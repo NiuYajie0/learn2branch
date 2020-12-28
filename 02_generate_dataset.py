@@ -46,6 +46,7 @@ class SamplingAgent(scip.Branchrule):
             result = self.model.executeBranchRule('vanillafullstrong', allowaddcons)
             cands_, scores, npriocands, bestcand = self.model.getVanillafullstrongData()
 
+
             assert result == scip.SCIP_RESULT.DIDNOTRUN
             assert all([c1.getCol().getLPPos() == c2.getCol().getLPPos() for c1, c2 in zip(cands, cands_)])
 
@@ -359,7 +360,7 @@ if __name__ == '__main__':
     print(f"{len(instances_test)} test instances for {test_size} samples")
 
     # create output directory, throws an error if it already exists
-    os.makedirs(out_dir)
+    os.makedirs(out_dir+'_pztest')
 
     rng = np.random.default_rng(args.seed)
     collect_samples(instances_train, out_dir + '/train', rng, train_size,

@@ -31,7 +31,7 @@
             "console": "integratedTerminal",
             "args": [
                 "facilities",
-                "-j 10"
+                "-s 1",
             ],
         },
         {
@@ -42,7 +42,17 @@
             "console": "integratedTerminal",
             "args": [
                 "facilities",
-                "-m","extratrees",
+                "-m","lambdamart",
+            ],
+        },
+        {
+            "name": "03 - Train GCNN",
+            "type": "python",
+            "request": "launch",
+            "program": "03_train_gcnn.py",
+            "console": "integratedTerminal",
+            "args": [
+                "facilities",
             ],
         },
     ]

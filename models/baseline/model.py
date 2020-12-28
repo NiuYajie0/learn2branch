@@ -23,8 +23,9 @@ class PreNormLayer(K.layers.Layer):
                 name=f'{self.name}/shift',
                 shape=(n_units,),
                 trainable=False,
-                initializer=tf.keras.initializers.constant(value=np.zeros((n_units,)),
-                dtype=tf.float32),
+                initializer=tf.keras.initializers.constant(
+                    value=np.zeros((n_units,)),
+                ),
             )
         else:
             self.shift = None
@@ -34,8 +35,9 @@ class PreNormLayer(K.layers.Layer):
                 name=f'{self.name}/scale',
                 shape=(n_units,),
                 trainable=False,
-                initializer=tf.keras.initializers.constant(value=np.ones((n_units,)),
-                dtype=tf.float32),
+                initializer=tf.keras.initializers.constant(
+                    value=np.ones((n_units,)),
+                ),
             )
         else:
             self.scale = None
@@ -336,14 +338,14 @@ class GCNPolicy(BaseModel):
         # save input signature for compilation
         self.input_signature = [
             (
-                tf.contrib.eager.TensorSpec(shape=[None, self.cons_nfeats], dtype=tf.float32),
-                tf.contrib.eager.TensorSpec(shape=[2, None], dtype=tf.int32),
-                tf.contrib.eager.TensorSpec(shape=[None, self.edge_nfeats], dtype=tf.float32),
-                tf.contrib.eager.TensorSpec(shape=[None, self.var_nfeats], dtype=tf.float32),
-                tf.contrib.eager.TensorSpec(shape=[None], dtype=tf.int32),
-                tf.contrib.eager.TensorSpec(shape=[None], dtype=tf.int32),
+                tf.TensorSpec(shape=[None, self.cons_nfeats], dtype=tf.float32),
+                tf.TensorSpec(shape=[2, None], dtype=tf.int32),
+                tf.TensorSpec(shape=[None, self.edge_nfeats], dtype=tf.float32),
+                tf.TensorSpec(shape=[None, self.var_nfeats], dtype=tf.float32),
+                tf.TensorSpec(shape=[None], dtype=tf.int32),
+                tf.TensorSpec(shape=[None], dtype=tf.int32),
             ),
-            tf.contrib.eager.TensorSpec(shape=[], dtype=tf.bool),
+            tf.TensorSpec(shape=[], dtype=tf.bool),
         ]
 
     def build(self, input_shapes):
@@ -411,8 +413,8 @@ class GCNPolicy(BaseModel):
             Training mode indicator
         """
         constraint_features, edge_indices, edge_features, variable_features, n_cons_per_sample, n_vars_per_sample = inputs
-        n_cons_total = tf.reduce_sum(n_cons_per_sample)
-        n_vars_total = tf.reduce_sum(n_vars_per_sample)
+        n_cons_total = tf.math.reduce_sum(n_cons_per_sample)
+        n_vars_total = tf.math.reduce_sum(n_vars_per_sample)
 
         # EMBEDDINGS
         constraint_features = self.cons_embedding(constraint_features)
@@ -432,7 +434,7 @@ class GCNPolicy(BaseModel):
         output = self.output_module(variable_features)
         output = tf.reshape(output, [1, -1])
 
-        if n_vars_per_sample.shape[0] > 1:
+        if n_vars_per_sample.shape[0] and n_vars_per_sample.shape[0] > 1:
             output = self.pad_output(output, n_vars_per_sample)
 
         return output

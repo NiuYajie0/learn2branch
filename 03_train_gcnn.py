@@ -10,7 +10,7 @@ from shutil import copyfile
 import gzip
 
 import tensorflow as tf
-import tensorflow.contrib.eager as tfe
+# import tensorflow.contrib.eager as tfe
 
 import utilities
 from utilities import log
@@ -19,7 +19,7 @@ from utilities_tf import load_batch_gcnn
 
 
 def load_batch_tf(x):
-    return tf.py_func(
+    return tf.py_function(
         load_batch_gcnn,
         [x],
         [tf.float32, tf.int32, tf.float32, tf.float32, tf.int32, tf.int32, tf.int32, tf.int32, tf.int32, tf.float32])
@@ -46,9 +46,20 @@ def pretrain(model, dataloader):
             c, ei, ev, v, n_cs, n_vs, n_cands, cands, best_cands, cand_scores = batch
             batched_states = (c, ei, ev, v, n_cs, n_vs)
 
+            # model: GCNPolicy(BaseModel) --- pre_train 方法定义在 BaseModel 里面
+            # pre_train 实际上就是跑 model.call, 但是过程中只要抛出了 PreNormLayerException 就接住并返回True
+            # PreNormLayerException 是在某个 PreNormLayer 的call中更新后抛出的（必须处在 waiting_updates 中才能更新）
+            # 所以在多个 PreNormLayer 处于 waiting_updates 状态的时候，调用这个方法只会有一个 PreNormLayer 被更新了
+            #    （最前面的、还在waiting updates的PreNormLayer），后面的 layers 也都不会有计算
+            # 一次循环是用一个 batch 更新最前面的 PreNormLayer 的参数，只要那个 PreNormLayer 还在 waiting_updates 状态，就还是更新那个 PreNormLayer
+            # 所以这整个 for batch in dataloader 循环跑完就是用 pretraindata 数据集里面的所有数据更新最前面那个 PreNormLayer 的参数
+            # 因此要重复几次这个循环，用 i 来记次数，共 7 个 PreNormLayer, 跑完 i 就等于 7
+            # 那么 pre_train_next 方法要做的就是，把最前面的那个还在等待更新的 PreNormLayer 的等待状态关了，即把 waiting_updates 设为 False
             if not model.pre_train(batched_states, tf.convert_to_tensor(True)):
                 break
 
+        # 按顺序访问每一个 layers，对第一个处在 waiting_updates 和 received_updates 状态的 PreNormLayer 运行 layer.stop_updates()
+        # 即把最前面那个 PreNormLayer 的等待状态关了（同时设好 self.shift 和 self.var）
         res = model.pre_train_next()
         if res is None:
             break
@@ -75,14 +86,14 @@ def process(model, dataloader, top_k, optimizer=None):
                 logits = model(batched_states, tf.convert_to_tensor(True)) # training mode
                 logits = tf.expand_dims(tf.gather(tf.squeeze(logits, 0), cands), 0)  # filter candidate variables
                 logits = model.pad_output(logits, n_cands.numpy())  # apply padding now
-                loss = tf.losses.sparse_softmax_cross_entropy(labels=best_cands, logits=logits)
+                loss = np.sum(tf.nn.sparse_softmax_cross_entropy_with_logits(labels=best_cands, logits=logits))
             grads = tape.gradient(target=loss, sources=model.variables)
             optimizer.apply_gradients(zip(grads, model.variables))
         else:
             logits = model(batched_states, tf.convert_to_tensor(False))  # eval mode
             logits = tf.expand_dims(tf.gather(tf.squeeze(logits, 0), cands), 0)  # filter candidate variables
             logits = model.pad_output(logits, n_cands.numpy())  # apply padding now
-            loss = tf.losses.sparse_softmax_cross_entropy(labels=best_cands, logits=logits)
+            loss = np.sum(tf.nn.sparse_softmax_cross_entropy_with_logits(labels=best_cands, logits=logits))
 
         true_scores = model.pad_output(tf.reshape(cand_scores, (1, -1)), n_cands)
         true_bestscore = tf.reduce_max(true_scores, axis=-1, keepdims=True)
@@ -96,7 +107,7 @@ def process(model, dataloader, top_k, optimizer=None):
             kacc.append(np.mean(np.any(pred_top_k_true_scores == true_bestscore, axis=1)))
         kacc = np.asarray(kacc)
 
-        mean_loss += loss.numpy() * batch_size
+        mean_loss += loss * batch_size
         mean_kacc += kacc * batch_size
         n_samples_processed += batch_size
 
@@ -134,11 +145,11 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     ### HYPER PARAMETERS ###
-    max_epochs = 1000
-    epoch_size = 312
+    max_epochs = 10
+    epoch_size = 5
     batch_size = 32
-    pretrain_batch_size = 128
-    valid_batch_size = 128
+    pretrain_batch_size = 16
+    valid_batch_size = 32
     lr = 0.001
     patience = 10
     early_stopping = 20
@@ -179,13 +190,13 @@ if __name__ == '__main__':
         os.environ['CUDA_VISIBLE_DEVICES'] = ''
     else:
         os.environ['CUDA_VISIBLE_DEVICES'] = f'{args.gpu}'
-    config = tf.ConfigProto()
-    config.gpu_options.allow_growth = True
-    tf.enable_eager_execution(config)
-    tf.executing_eagerly()
+    # config = tf.ConfigProto()
+    # config.gpu_options.allow_growth = True
+    # tf.enable_eager_execution(config)
+    # tf.executing_eagerly()
 
-    rng = np.random.RandomState(args.seed)
-    tf.set_random_seed(rng.randint(np.iinfo(int).max))
+    rng = np.random.default_rng(args.seed)
+    tf.random.set_seed(rng.integers(np.iinfo(int).max))
 
     ### SET-UP DATASET ###
     train_files = list(pathlib.Path(f'data/samples/{problem_folder}/train').glob('sample_*.pkl'))
@@ -232,26 +243,28 @@ if __name__ == '__main__':
     pretrain_data = pretrain_data.prefetch(1)
 
     ### MODEL LOADING ###
-    sys.path.insert(0, os.path.abspath(f'models/{args.model}'))
-    import model
-    importlib.reload(model)
+    model = importlib.import_module(f'models.{args.model}.model')
+    # sys.path.insert(0, os.path.abspath(f'models/{args.model}'))
+    # import model
+    # importlib.reload(model)
     model = model.GCNPolicy()
-    del sys.path[0]
+    # del sys.path[0]
+    
 
     ### TRAINING LOOP ###
-    optimizer = tf.train.AdamOptimizer(learning_rate=lambda: lr)  # dynamic LR trick
+    optimizer = tf.keras.optimizers.Adam(learning_rate=lambda: lr)  # dynamic LR trick
     best_loss = np.inf
     for epoch in range(max_epochs + 1):
         log(f"EPOCH {epoch}...", logfile)
-        epoch_loss_avg = tfe.metrics.Mean()
-        epoch_accuracy = tfe.metrics.Accuracy()
+        epoch_loss_avg = tf.keras.metrics.Mean()
+        epoch_accuracy = tf.keras.metrics.Accuracy()
 
         # TRAIN
         if epoch == 0:
             n = pretrain(model=model, dataloader=pretrain_data)
             log(f"PRETRAINED {n} LAYERS", logfile)
             # model compilation
-            model.call = tfe.defun(model.call, input_signature=model.input_signature)
+            model.call = tf.function(model.call, input_signature=model.input_signature)
         else:
             # bugfix: tensorflow's shuffle() seems broken...
             epoch_train_files = rng.choice(train_files, epoch_size * batch_size, replace=True)

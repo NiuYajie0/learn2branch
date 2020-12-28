@@ -18,8 +18,8 @@ def load_batch_gcnn(sample_files):
     cand_scoress = []
 
     # load samples
-    for filename in sample_files:
-        with gzip.open(filename, 'rb') as f:
+    for filename_tensor in sample_files:
+        with gzip.open(str(filename_tensor.numpy(), 'utf-8'), 'rb') as f:
             sample = pickle.load(f)
 
         sample_state, _, sample_action, sample_cands, cand_scores = sample['data']
