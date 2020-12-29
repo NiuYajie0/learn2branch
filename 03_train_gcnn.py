@@ -86,14 +86,14 @@ def process(model, dataloader, top_k, optimizer=None):
                 logits = model(batched_states, tf.convert_to_tensor(True)) # training mode
                 logits = tf.expand_dims(tf.gather(tf.squeeze(logits, 0), cands), 0)  # filter candidate variables
                 logits = model.pad_output(logits, n_cands.numpy())  # apply padding now
-                loss = np.sum(tf.nn.sparse_softmax_cross_entropy_with_logits(labels=best_cands, logits=logits))
+                loss = tf.nn.sparse_softmax_cross_entropy_with_logits(labels=best_cands, logits=logits)
             grads = tape.gradient(target=loss, sources=model.variables)
             optimizer.apply_gradients(zip(grads, model.variables))
         else:
             logits = model(batched_states, tf.convert_to_tensor(False))  # eval mode
             logits = tf.expand_dims(tf.gather(tf.squeeze(logits, 0), cands), 0)  # filter candidate variables
             logits = model.pad_output(logits, n_cands.numpy())  # apply padding now
-            loss = np.sum(tf.nn.sparse_softmax_cross_entropy_with_logits(labels=best_cands, logits=logits))
+            loss = tf.nn.sparse_softmax_cross_entropy_with_logits(labels=best_cands, logits=logits)
 
         true_scores = model.pad_output(tf.reshape(cand_scores, (1, -1)), n_cands)
         true_bestscore = tf.reduce_max(true_scores, axis=-1, keepdims=True)
@@ -107,7 +107,7 @@ def process(model, dataloader, top_k, optimizer=None):
             kacc.append(np.mean(np.any(pred_top_k_true_scores == true_bestscore, axis=1)))
         kacc = np.asarray(kacc)
 
-        mean_loss += loss * batch_size
+        mean_loss += np.sum(loss) * batch_size
         mean_kacc += kacc * batch_size
         n_samples_processed += batch_size
 
@@ -147,9 +147,9 @@ if __name__ == '__main__':
     ### HYPER PARAMETERS ###
     max_epochs = 10
     epoch_size = 5
-    batch_size = 32
+    batch_size = 8 # 我的电脑设为16就内存溢出 -- 因此目前这个方法更适合规模小一些的问题
     pretrain_batch_size = 16
-    valid_batch_size = 32
+    valid_batch_size = 16
     lr = 0.001
     patience = 10
     early_stopping = 20
@@ -264,7 +264,7 @@ if __name__ == '__main__':
             n = pretrain(model=model, dataloader=pretrain_data)
             log(f"PRETRAINED {n} LAYERS", logfile)
             # model compilation
-            model.call = tf.function(model.call, input_signature=model.input_signature)
+            # model.call = tf.function(model.call, input_signature=model.input_signature)
         else:
             # bugfix: tensorflow's shuffle() seems broken...
             epoch_train_files = rng.choice(train_files, epoch_size * batch_size, replace=True)
