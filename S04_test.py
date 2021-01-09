@@ -132,11 +132,11 @@ if __name__ == '__main__':
     print(f"gpu: {args.gpu}")
 
     os.makedirs("results", exist_ok=True)
-    result_file = f"results/{args.problem}_validation_{time.strftime('%Y%m%d-%H%M%S')}.csv"
+    # result_file = f"results/{args.problem}_validation_{time.strftime('%Y%m%d-%H%M%S')}.csv"
     seeds = [0, 1, 2, 3, 4]
     gcnn_models = ['baseline']
     other_models = ['extratrees_gcnn_agg', 'lambdamart_khalil', 'svmrank_khalil']
-    test_batch_size = 128
+    test_batch_size = 16
     top_k = [1, 3, 5, 10]
 
     problem_folders = {
@@ -153,7 +153,7 @@ if __name__ == '__main__':
     result_file = f"results/{args.problem}_test_{time.strftime('%Y%m%d-%H%M%S')}"
 
     result_file = result_file + '.csv'
-    os.makedirs('results', exist_ok=True)
+    # os.makedirs('results', exist_ok=True)
 
     ### TENSORFLOW SETUP ###
     if args.gpu == -1:
@@ -240,7 +240,7 @@ if __name__ == '__main__':
                         'policy': f"{policy['type']}:{policy['name']}",
                         'seed': seed,
                     },
-                    **{
+                    **{1
                         f'acc@{k}': test_kacc[i] for i, k in enumerate(top_k)
                     },
                 })

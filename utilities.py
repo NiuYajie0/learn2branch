@@ -114,7 +114,7 @@ def extract_state(model, buffer=None):
 
     col_feat_names = [[k, ] if v.shape[1] == 1 else [f'{k}_{i}' for i in range(v.shape[1])] for k, v in col_feats.items()]
     col_feat_names = [n for names in col_feat_names for n in names]
-    col_feat_vals = np.concatenate(list(col_feats.values()), axis=-1)
+    col_feat_vals = np.concatenate(list(col_feats.values()), axis=-1) # shape=(10100,19), 10100: no. vars; 19: no. feats
 
     variable_features = {
         'names': col_feat_names,
@@ -166,7 +166,7 @@ def extract_state(model, buffer=None):
 
     row_feat_names = [[k, ] if v.shape[1] == 1 else [f'{k}_{i}' for i in range(v.shape[1])] for k, v in row_feats.items()]
     row_feat_names = [n for names in row_feat_names for n in names]
-    row_feat_vals = np.concatenate(list(row_feats.values()), axis=-1)
+    row_feat_vals = np.concatenate(list(row_feats.values()), axis=-1) # shape=(5354, 5)
 
     constraint_features = {
         'names': row_feat_names,
@@ -198,8 +198,8 @@ def extract_state(model, buffer=None):
 
     edge_features = {
         'names': edge_feat_names,
-        'indices': edge_feat_indices,
-        'values': edge_feat_vals,}
+        'indices': edge_feat_indices, # (2, 34011)
+        'values': edge_feat_vals,} # (34011, 1)
 
     if 'state' not in buffer:
         buffer['state'] = {
@@ -212,7 +212,12 @@ def extract_state(model, buffer=None):
             'edge_col_idxs': edge_col_idxs,
             'edge_feats': edge_feats,
         }
-
+#   用运行加入了 load_batch_tf([tf.constant('data\\samples\\facilities\\100_100_5\\train\\sample_1.pkl')]) 的 S03_train_gcnn.py  和 运行 S02_generate_dataset.py 来检查下面这些features和在utilities_tf.load_batch_gcnn中读取出来的features的形状是否匹配的时候，  
+#     运行 S02_generate_dataset.py 的 seed要和 sample_1.pkl 生成时候的seed一样，否则新运行出来的第一个就不是当时生成的的sample_1.pkl了
+#     现在，seed=0时，生成的第一个 samples 的 features 如下
+#     constraint_features['values'].shape = (4196, 5)
+#     edge_features['values'].shape = (32941, 1)
+#     variable_features['values'].shape = (10100, 19)
     return constraint_features, edge_features, variable_features
 
 

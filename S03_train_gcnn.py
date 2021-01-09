@@ -18,10 +18,11 @@ from utilities import log
 from utilities_tf import load_batch_gcnn
 
 
-def load_batch_tf(x):
+def load_batch_tf(batch_filename_tensor):
+    # 在这个
     return tf.py_function(
         load_batch_gcnn,
-        [x],
+        [batch_filename_tensor],
         [tf.float32, tf.int32, tf.float32, tf.float32, tf.int32, tf.int32, tf.int32, tf.int32, tf.int32, tf.float32])
 
 
@@ -77,15 +78,23 @@ def process(model, dataloader, top_k, optimizer=None):
 
     n_samples_processed = 0
     for batch in dataloader:
+        # 这里的shapes中有一个维度都会比较大，因为这是concatenate以后的大图的信息
+        # ev 对应 edge_features，不知道为什么用 ev 而不是 ef; 
+        # cands是把一个batch中的每个sample的candidates都并起来得到的，cands.shape[0]就等于n_cands中所有元素的和
+        # c:(55394,5), ei:(2, 363081), ev:(363081, 1), v:(80800, 19), n_cs:(8,), 
+        # n_vs:(8,), n_cands:(8,), cands:(315,), best_cands:(8,), cand_scores:(315,)
         c, ei, ev, v, n_cs, n_vs, n_cands, cands, best_cands, cand_scores = batch
         batched_states = (c, ei, ev, v, tf.reduce_sum(n_cs, keepdims=True), tf.reduce_sum(n_vs, keepdims=True))  # prevent padding
-        batch_size = len(n_cs.numpy())
+        batch_size = n_cs.shape[0]
 
         if optimizer:
             with tf.GradientTape() as tape:
-                logits = model(batched_states, tf.convert_to_tensor(True)) # training mode
-                logits = tf.expand_dims(tf.gather(tf.squeeze(logits, 0), cands), 0)  # filter candidate variables
-                logits = model.pad_output(logits, n_cands.numpy())  # apply padding now
+                logits = model(batched_states, tf.convert_to_tensor(True)) # training mode # logits:(1,80800)对应变量的数目
+                
+                # squeeze(logits, 0)把大小为1的维度去掉，然后tf.gather(tf.squeeze(logits, 0), cands)从logits中按照cands获取cands的logits值, logits:(315,)；执行expand_dim后, logits:(1, 315)
+                # 这里的 cands 是在 utilities_tf.load_batch_gcnn 中 shift 过了的
+                logits = tf.expand_dims(tf.gather(tf.squeeze(logits, 0), cands), 0)  # filter candidate variables # tf.
+                logits = model.pad_output(logits, n_cands.numpy())  # apply padding now # logits:(8,53)
                 loss = tf.nn.sparse_softmax_cross_entropy_with_logits(labels=best_cands, logits=logits)
             grads = tape.gradient(target=loss, sources=model.variables)
             optimizer.apply_gradients(zip(grads, model.variables))
@@ -186,14 +195,21 @@ if __name__ == '__main__':
     log(f"seed {args.seed}", logfile)
 
     ### NUMPY / TENSORFLOW SETUP ###
+    ## TODO 下面这个没用了，要用tf.config.set_visible_devices来控制是否使用CPU
+    ## 见 https://www.tensorflow.org/api_docs/python/tf/config/set_visible_devices
     if args.gpu == -1:
-        os.environ['CUDA_VISIBLE_DEVICES'] = ''
+        tf.config.set_visible_devices(tf.config.list_physical_devices('CPU')[0])
     else:
-        os.environ['CUDA_VISIBLE_DEVICES'] = f'{args.gpu}'
-    # config = tf.ConfigProto()
-    # config.gpu_options.allow_growth = True
-    # tf.enable_eager_execution(config)
-    # tf.executing_eagerly()
+        cpu_devices = tf.config.list_physical_devices('CPU') 
+        gpu_devices = tf.config.list_physical_devices('GPU') 
+        tf.config.set_visible_devices([cpu_devices[0], gpu_devices[args.gpu]])
+        tf.config.experimental.set_memory_growth(gpu_devices[args.gpu], True)
+
+    # 可能还需要设定最大虚拟GPU大小，用 tf.config.experimental.set_virtual_device_configuration
+    # 见 https://www.tensorflow.org/guide/gpu#limiting_gpu_memory_growth 
+
+
+    tf.config.run_functions_eagerly(True)
 
     rng = np.random.default_rng(args.seed)
     tf.random.set_seed(rng.integers(np.iinfo(int).max))
@@ -234,6 +250,10 @@ if __name__ == '__main__':
     valid_data = tf.data.Dataset.from_tensor_slices(valid_files)
     valid_data = valid_data.batch(valid_batch_size)
     valid_data = valid_data.map(load_batch_tf)
+
+    # TODO Debug
+    # load_batch_tf([tf.constant('data\\samples\\facilities\\100_100_5\\train\\sample_1.pkl')])
+
     valid_data = valid_data.prefetch(1)
 
     pretrain_files = [f for i, f in enumerate(train_files) if i % 10 == 0]
@@ -276,6 +296,8 @@ if __name__ == '__main__':
             log(f"TRAIN LOSS: {train_loss:0.3f} " + "".join([f" acc@{k}: {acc:0.3f}" for k, acc in zip(top_k, train_kacc)]), logfile)
 
         # TEST
+        # 第一次 valid: VALID LOSS: 39.318  acc@1: 0.440 acc@3: 0.785 acc@5: 0.915 acc@10: 0.995
+        # 所以 acc@10 本身就很高; 不过和论文中也匹配，facilities这类问题acc@10就是很高
         valid_loss, valid_kacc = process(model, valid_data, top_k, None)
         log(f"VALID LOSS: {valid_loss:0.3f} " + "".join([f" acc@{k}: {acc:0.3f}" for k, acc in zip(top_k, valid_kacc)]), logfile)
 

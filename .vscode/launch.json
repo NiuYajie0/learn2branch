@@ -17,7 +17,7 @@
             "name": "01 - Generate Instances",
             "type": "python",
             "request": "launch",
-            "program": "01_generate_instances.py",
+            "program": "S01_generate_instances.py",
             "console": "integratedTerminal",
             "args": [
                 "facilities",
@@ -27,18 +27,18 @@
             "name": "02 - Generate Dataset",
             "type": "python",
             "request": "launch",
-            "program": "02_generate_dataset.py",
+            "program": "S02_generate_dataset.py",
             "console": "integratedTerminal",
             "args": [
                 "facilities",
-                "-s 1",
+                "-s 0",
             ],
         },
         {
             "name": "03 - Train Competitor",
             "type": "python",
             "request": "launch",
-            "program": "03_train_competitor.py",
+            "program": "S03_train_competitor.py",
             "console": "integratedTerminal",
             "args": [
                 "facilities",
@@ -49,10 +49,11 @@
             "name": "03 - Train GCNN",
             "type": "python",
             "request": "launch",
-            "program": "03_train_gcnn.py",
+            "program": "S03_train_gcnn.py",
             "console": "integratedTerminal",
             "args": [
                 "facilities",
+                "-s 1",
             ],
         },
     ]

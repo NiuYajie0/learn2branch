@@ -365,7 +365,7 @@ class GCNPolicy(BaseModel):
     def pad_output(output, n_vars_per_sample, pad_value=-1e8):
         n_vars_max = tf.reduce_max(n_vars_per_sample)
 
-        output = tf.split(
+        output = tf.split( # 在logits = model.pad_output(logits, n_cands.numpy())中n_vars_per_sample对应的其实是n_cands
             value=output,
             num_or_size_splits=n_vars_per_sample,
             axis=1,
@@ -412,9 +412,13 @@ class GCNPolicy(BaseModel):
         training: boolean
             Training mode indicator
         """
+        # tensor shapes:
+        # 最后两个本来应该是传1D tensors，但是process那里直接求和了（估计是考虑到不需要整个向量，并且为了效率，就把这两个先求和了）
+        # 其实那个batch在进来的时候就是当作一个大图进来的，从概念上就合了在一起，所以也不需要区分不同的小图
+        # (55394, 5)       (2, 363081)    (363081, 1)     (80800, 19)        (1,)               (1,)
         constraint_features, edge_indices, edge_features, variable_features, n_cons_per_sample, n_vars_per_sample = inputs
-        n_cons_total = tf.math.reduce_sum(n_cons_per_sample)
-        n_vars_total = tf.math.reduce_sum(n_vars_per_sample)
+        n_cons_total = tf.math.reduce_sum(n_cons_per_sample) # numpy=55394
+        n_vars_total = tf.math.reduce_sum(n_vars_per_sample) # numpy=80800
 
         # EMBEDDINGS
         constraint_features = self.cons_embedding(constraint_features)
@@ -432,7 +436,7 @@ class GCNPolicy(BaseModel):
 
         # OUTPUT
         output = self.output_module(variable_features)
-        output = tf.reshape(output, [1, -1])
+        output = tf.reshape(output, [1, -1]) # shape=(1, 161600)
 
         if n_vars_per_sample.shape[0] and n_vars_per_sample.shape[0] > 1:
             output = self.pad_output(output, n_vars_per_sample)
