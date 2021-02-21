@@ -96,8 +96,8 @@ def process(model, dataloader, top_k, optimizer=None):
                 logits = tf.expand_dims(tf.gather(tf.squeeze(logits, 0), cands), 0)  # filter candidate variables # tf.
                 logits = model.pad_output(logits, n_cands.numpy())  # apply padding now # logits:(8,53)
                 loss = tf.nn.sparse_softmax_cross_entropy_with_logits(labels=best_cands, logits=logits)
-            grads = tape.gradient(target=loss, sources=model.variables)
-            optimizer.apply_gradients(zip(grads, model.variables))
+            grads = tape.gradient(target=loss, sources=model.trainable_variables)
+            optimizer.apply_gradients(zip(grads, model.trainable_variables))
         else:
             logits = model(batched_states, tf.convert_to_tensor(False))  # eval mode
             logits = tf.expand_dims(tf.gather(tf.squeeze(logits, 0), cands), 0)  # filter candidate variables
