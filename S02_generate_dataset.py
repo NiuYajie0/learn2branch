@@ -302,7 +302,7 @@ if __name__ == '__main__':
     parser.add_argument(
         'problem',
         help='MILP instance type to process.',
-        choices=['setcover', 'cauctions', 'facilities', 'indset'],
+        choices=['setcover', 'cauctions', 'facilities', 'indset', 'chargePark_env'],
     )
     parser.add_argument(
         '-s', '--seed',
@@ -347,6 +347,13 @@ if __name__ == '__main__':
 
     elif args.problem == 'facilities':
         instances_train = glob.glob('data/instances/facilities/train_100_100_5/*.lp')
+        instances_valid = glob.glob('data/instances/facilities/valid_100_100_5/*.lp')
+        instances_test = glob.glob('data/instances/facilities/test_100_100_5/*.lp')
+        out_dir = 'data/samples/facilities/100_100_5'
+        time_limit = 600
+
+    elif args.problem == 'chargePark_env':
+        instances_train = glob.glob('D:\ResearchData\GitHub\learn2branch\data\exported_problems\*.lp')
         instances_valid = glob.glob('data/instances/facilities/valid_100_100_5/*.lp')
         instances_test = glob.glob('data/instances/facilities/test_100_100_5/*.lp')
         out_dir = 'data/samples/facilities/100_100_5'
