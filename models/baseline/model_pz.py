@@ -126,15 +126,15 @@ class BipartiteGraphConvolution(K.Model):
         self.right_to_left = right_to_left
 
         # feature layers
-        self.feature_module_left = K.Sequential([
-            K.layers.Dense(units=self.emb_size, activation=None, use_bias=True, kernel_initializer=self.initializer)
-        ])
+        # self.feature_module_left = K.Sequential([
+        #     K.layers.Dense(units=self.emb_size, activation=None, use_bias=True, kernel_initializer=self.initializer)
+        # ])
         self.feature_module_edge = K.Sequential([
             K.layers.Dense(units=self.emb_size, activation=None, use_bias=False, kernel_initializer=self.initializer)
         ])
-        self.feature_module_right = K.Sequential([
-            K.layers.Dense(units=self.emb_size, activation=None, use_bias=False, kernel_initializer=self.initializer)
-        ])
+        # self.feature_module_right = K.Sequential([
+        #     K.layers.Dense(units=self.emb_size, activation=None, use_bias=False, kernel_initializer=self.initializer)
+        # ])
         self.feature_module_final = K.Sequential([
             PreNormLayer(1, shift=False),  # normalize after summation trick
             K.layers.Activation(self.activation),
@@ -155,9 +155,9 @@ class BipartiteGraphConvolution(K.Model):
     def build(self, input_shapes):
         l_shape, ei_shape, ev_shape, r_shape = input_shapes
 
-        self.feature_module_left.build(l_shape)
+        # self.feature_module_left.build(l_shape)
         self.feature_module_edge.build(ev_shape)
-        self.feature_module_right.build(r_shape)
+        # self.feature_module_right.build(r_shape)
         self.feature_module_final.build([None, self.emb_size])
         self.post_conv_module.build([None, self.emb_size])
         self.output_module.build([None, self.emb_size + (l_shape[1] if self.right_to_left else r_shape[1])])
@@ -195,18 +195,31 @@ class BipartiteGraphConvolution(K.Model):
             prev_features = right_features
 
         # compute joint features
-        joint_features = self.feature_module_final(
-            tf.gather(
-                self.feature_module_left(left_features),
-                axis=0,
-                indices=edge_indices[0]
-            ) +
-            self.feature_module_edge(edge_features) +
-            tf.gather(
-                self.feature_module_right(right_features),
-                axis=0,
-                indices=edge_indices[1])
-        )
+        if self.right_to_left:
+            joint_features = self.feature_module_final(
+                tf.gather(
+                    left_features,
+                    axis=0,
+                    indices=edge_indices[0]
+                ) +
+                self.feature_module_edge(edge_features) *
+                tf.gather(
+                    right_features,
+                    axis=0,
+                    indices=edge_indices[1])
+            )
+        else:
+            joint_features = self.feature_module_final(
+                self.feature_module_edge(edge_features) * tf.gather(
+                    left_features,
+                    axis=0,
+                    indices=edge_indices[0]
+                ) +
+                tf.gather(
+                    right_features,
+                    axis=0,
+                    indices=edge_indices[1])
+            )
 
         # perform convolution
         conv_output = tf.scatter_nd(

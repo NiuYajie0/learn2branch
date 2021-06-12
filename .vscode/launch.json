@@ -20,7 +20,7 @@
             "program": "S01_generate_instances.py",
             "console": "integratedTerminal",
             "args": [
-                "facilities",
+                "facilities", // choices=['setcover', 'cauctions', 'facilities', 'indset']
             ],
         },
         {
@@ -30,7 +30,8 @@
             "program": "S02_generate_dataset.py",
             "console": "integratedTerminal",
             "args": [
-                "facilities",
+                "setcover", // choices=['setcover', 'cauctions', 'facilities', 'indset']
+                "--njobs", "10",
                 "-s 0",
             ],
         },
@@ -41,7 +42,7 @@
             "program": "S03_train_competitor.py",
             "console": "integratedTerminal",
             "args": [
-                "facilities",
+                "facilities", // choices=['setcover', 'cauctions', 'facilities', 'indset']
                 "-m","lambdamart",
             ],
         },
@@ -52,9 +53,22 @@
             "program": "S03_train_gcnn.py",
             "console": "integratedTerminal",
             "args": [
-                "facilities",
-                "-s 1",
+                "facilities", // choices=['setcover', 'cauctions', 'facilities', 'indset']
+                "--seeds", "range(15,20)",
+                "--sampling", "depthK" // choices: uniform_5, depthK
+            ],
+        },
+        {
+            "name": "04 - Test",
+            "type": "python",
+            "request": "launch",
+            "program": "S04_test.py",
+            "console": "integratedTerminal",
+            "args": [
+                "facilities", // choices=['setcover', 'cauctions', 'facilities', 'indset']
+                "--seeds", "range(0,15)",
                 // "-g -1"
+                "--sampling", "depthK"  // choices: uniform_5, depthK
             ],
         },
     ]

@@ -140,10 +140,10 @@ if __name__ == '__main__':
         default='baseline',
     )
     parser.add_argument(
-        '-s', '--seed',
-        help='Random generator seed.',
-        type=utilities.valid_seed,
-        default=0,
+        '-s', '--seeds',
+        help='Random generator seeds as a python list or range representation.',
+        # type=utilities.valid_seed,
+        default="range(0,5)",
     )
     parser.add_argument(
         '-g', '--gpu',
@@ -151,171 +151,186 @@ if __name__ == '__main__':
         type=int,
         default=0,
     )
+    parser.add_argument(
+        '--sampling',
+        help='Sampling Strategy',
+        choices=['uniform_5', 'depthK'],
+        default='uniform_5'
+    )
     args = parser.parse_args()
 
-    ### HYPER PARAMETERS ###
-    max_epochs = 10
-    epoch_size = 5
-    batch_size = 8 # 我的电脑设为16就内存溢出 -- 因此目前这个方法更适合规模小一些的问题
-    pretrain_batch_size = 16
-    valid_batch_size = 16
-    lr = 0.001
-    patience = 10
-    early_stopping = 20
-    top_k = [1, 3, 5, 10]
-    train_ncands_limit = np.inf
-    valid_ncands_limit = np.inf
+    seeds = eval(args.seeds)
 
-    problem_folders = {
-        'setcover': 'setcover/500r_1000c_0.05d',
-        'cauctions': 'cauctions/100_500',
-        'facilities': 'facilities/100_100_5',
-        'indset': 'indset/500_4',
-    }
-    problem_folder = problem_folders[args.problem]
+    for seed in seeds:
 
-    running_dir = f"trained_models/{args.problem}/{args.model}/{args.seed}"
+        ### HYPER PARAMETERS ###
+        max_epochs = 300
+        epoch_size = 20
+        batch_size = 8 # 我的电脑设为16就内存溢出 -- 因此目前这个方法更适合规模小一些的问题 # TODO 用他们后面的那种改进
+        pretrain_batch_size = 16
+        valid_batch_size = 16
+        lr = 0.001
+        patience = 10
+        early_stopping = 20
+        top_k = [1, 3, 5, 10]
+        train_ncands_limit = np.inf
+        valid_ncands_limit = np.inf
+        sampling_strategy = args.sampling
+        
 
-    os.makedirs(running_dir)
+        problem_folders = {
+            'setcover': 'setcover/500r_1000c_0.05d({sampling_strategy})',
+            'cauctions': 'cauctions/100_500({sampling_strategy})',
+            'facilities': f'facilities/100_100_5({sampling_strategy})', # TODO
+            'indset': 'indset/500_4({sampling_strategy})',
+        }
+        problem_folder = problem_folders[args.problem]
 
-    ### LOG ###
-    logfile = os.path.join(running_dir, 'log.txt')
+        # running_dir = f"trained_models/{args.problem}/{args.model}/{args.seed}"
+        running_dir = f"trained_models/{args.problem}/{sampling_strategy}/{seed}" # TODO
 
-    log(f"max_epochs: {max_epochs}", logfile)
-    log(f"epoch_size: {epoch_size}", logfile)
-    log(f"batch_size: {batch_size}", logfile)
-    log(f"pretrain_batch_size: {pretrain_batch_size}", logfile)
-    log(f"valid_batch_size : {valid_batch_size }", logfile)
-    log(f"lr: {lr}", logfile)
-    log(f"patience : {patience }", logfile)
-    log(f"early_stopping : {early_stopping }", logfile)
-    log(f"top_k: {top_k}", logfile)
-    log(f"problem: {args.problem}", logfile)
-    log(f"gpu: {args.gpu}", logfile)
-    log(f"seed {args.seed}", logfile)
+        os.makedirs(running_dir)
 
-    ### NUMPY / TENSORFLOW SETUP ###
-    ## TODO 下面这个没用了，要用tf.config.set_visible_devices来控制是否使用CPU
-    ## 见 https://www.tensorflow.org/api_docs/python/tf/config/set_visible_devices
-    if args.gpu == -1:
-        tf.config.set_visible_devices(tf.config.list_physical_devices('CPU')[0])
-    else:
-        cpu_devices = tf.config.list_physical_devices('CPU') 
-        gpu_devices = tf.config.list_physical_devices('GPU') 
-        tf.config.set_visible_devices([cpu_devices[0], gpu_devices[args.gpu]])
-        tf.config.experimental.set_memory_growth(gpu_devices[args.gpu], True)
+        ### LOG ###
+        logfile = os.path.join(running_dir, 'log.txt')
 
-    # 可能还需要设定最大虚拟GPU大小，用 tf.config.experimental.set_virtual_device_configuration
-    # 见 https://www.tensorflow.org/guide/gpu#limiting_gpu_memory_growth 
+        log(f"max_epochs: {max_epochs}", logfile)
+        log(f"epoch_size: {epoch_size}", logfile)
+        log(f"sampling: {sampling_strategy}", logfile)
+        log(f"batch_size: {batch_size}", logfile)
+        log(f"pretrain_batch_size: {pretrain_batch_size}", logfile)
+        log(f"valid_batch_size : {valid_batch_size }", logfile)
+        log(f"lr: {lr}", logfile)
+        log(f"patience : {patience }", logfile)
+        log(f"early_stopping : {early_stopping }", logfile)
+        log(f"top_k: {top_k}", logfile)
+        log(f"problem: {args.problem}", logfile)
+        log(f"gpu: {args.gpu}", logfile)
+        log(f"seed {seed}", logfile)
+        
 
-
-    tf.config.run_functions_eagerly(True)
-
-    rng = np.random.default_rng(args.seed)
-    tf.random.set_seed(rng.integers(np.iinfo(int).max))
-
-    ### SET-UP DATASET ###
-    train_files = list(pathlib.Path(f'data/samples/{problem_folder}/train').glob('sample_*.pkl'))
-    valid_files = list(pathlib.Path(f'data/samples/{problem_folder}/valid').glob('sample_*.pkl'))
-
-
-    def take_subset(sample_files, cands_limit):
-        nsamples = 0
-        ncands = 0
-        for filename in sample_files:
-            with gzip.open(filename, 'rb') as file:
-                sample = pickle.load(file)
-
-            _, _, _, cands, _ = sample['data']
-            ncands += len(cands)
-            nsamples += 1
-
-            if ncands >= cands_limit:
-                log(f"  dataset size limit reached ({cands_limit} candidate variables)", logfile)
-                break
-
-        return sample_files[:nsamples]
-
-
-    if train_ncands_limit < np.inf:
-        train_files = take_subset(rng.permutation(train_files), train_ncands_limit)
-    log(f"{len(train_files)} training samples", logfile)
-    if valid_ncands_limit < np.inf:
-        valid_files = take_subset(valid_files, valid_ncands_limit)
-    log(f"{len(valid_files)} validation samples", logfile)
-
-    train_files = [str(x) for x in train_files]
-    valid_files = [str(x) for x in valid_files]
-
-    valid_data = tf.data.Dataset.from_tensor_slices(valid_files)
-    valid_data = valid_data.batch(valid_batch_size)
-    valid_data = valid_data.map(load_batch_tf)
-
-    # TODO Debug
-    # load_batch_tf([tf.constant('data\\samples\\facilities\\100_100_5\\train\\sample_1.pkl')])
-
-    valid_data = valid_data.prefetch(1)
-
-    pretrain_files = [f for i, f in enumerate(train_files) if i % 10 == 0]
-    pretrain_data = tf.data.Dataset.from_tensor_slices(pretrain_files)
-    pretrain_data = pretrain_data.batch(pretrain_batch_size)
-    pretrain_data = pretrain_data.map(load_batch_tf)
-    pretrain_data = pretrain_data.prefetch(1)
-
-    ### MODEL LOADING ###
-    model = importlib.import_module(f'models.{args.model}.model')
-    # sys.path.insert(0, os.path.abspath(f'models/{args.model}'))
-    # import model
-    # importlib.reload(model)
-    model = model.GCNPolicy()
-    # del sys.path[0]
-    
-
-    ### TRAINING LOOP ###
-    optimizer = tf.keras.optimizers.Adam(learning_rate=lambda: lr)  # dynamic LR trick
-    best_loss = np.inf
-    for epoch in range(max_epochs + 1):
-        log(f"EPOCH {epoch}...", logfile)
-        epoch_loss_avg = tf.keras.metrics.Mean()
-        epoch_accuracy = tf.keras.metrics.Accuracy()
-
-        # TRAIN
-        if epoch == 0:
-            n = pretrain(model=model, dataloader=pretrain_data)
-            log(f"PRETRAINED {n} LAYERS", logfile)
-            # model compilation
-            # model.call = tf.function(model.call, input_signature=model.input_signature)
+        ### NUMPY / TENSORFLOW SETUP ###
+        ## TODO 下面这个没用了，要用tf.config.set_visible_devices来控制是否使用CPU
+        ## 见 https://www.tensorflow.org/api_docs/python/tf/config/set_visible_devices
+        if args.gpu == -1:
+            tf.config.set_visible_devices(tf.config.list_physical_devices('CPU')[0])
         else:
-            # bugfix: tensorflow's shuffle() seems broken...
-            epoch_train_files = rng.choice(train_files, epoch_size * batch_size, replace=True)
-            train_data = tf.data.Dataset.from_tensor_slices(epoch_train_files)
-            train_data = train_data.batch(batch_size)
-            train_data = train_data.map(load_batch_tf)
-            train_data = train_data.prefetch(1)
-            train_loss, train_kacc = process(model, train_data, top_k, optimizer)
-            log(f"TRAIN LOSS: {train_loss:0.3f} " + "".join([f" acc@{k}: {acc:0.3f}" for k, acc in zip(top_k, train_kacc)]), logfile)
+            cpu_devices = tf.config.list_physical_devices('CPU') 
+            gpu_devices = tf.config.list_physical_devices('GPU') 
+            tf.config.set_visible_devices([cpu_devices[0], gpu_devices[args.gpu]])
+            tf.config.experimental.set_memory_growth(gpu_devices[args.gpu], True)
 
-        # TEST
-        # 第一次 valid: VALID LOSS: 39.318  acc@1: 0.440 acc@3: 0.785 acc@5: 0.915 acc@10: 0.995
-        # 所以 acc@10 本身就很高; 不过和论文中也匹配，facilities这类问题acc@10就是很高
+        # 可能还需要设定最大虚拟GPU大小，用 tf.config.experimental.set_virtual_device_configuration
+        # 见 https://www.tensorflow.org/guide/gpu#limiting_gpu_memory_growth 
+
+
+        tf.config.run_functions_eagerly(True)
+
+        rng = np.random.default_rng(seed)
+        tf.random.set_seed(rng.integers(np.iinfo(int).max))
+
+        ### SET-UP DATASET ###
+        train_files = list(pathlib.Path(f'data/samples/{problem_folder}/train').glob('sample_*.pkl'))
+        valid_files = list(pathlib.Path(f'data/samples/{problem_folder}/valid').glob('sample_*.pkl'))
+
+
+        def take_subset(sample_files, cands_limit):
+            nsamples = 0
+            ncands = 0
+            for filename in sample_files:
+                with gzip.open(filename, 'rb') as file:
+                    sample = pickle.load(file)
+
+                _, _, _, cands, _ = sample['data']
+                ncands += len(cands)
+                nsamples += 1
+
+                if ncands >= cands_limit:
+                    log(f"  dataset size limit reached ({cands_limit} candidate variables)", logfile)
+                    break
+
+            return sample_files[:nsamples]
+
+
+        if train_ncands_limit < np.inf:
+            train_files = take_subset(rng.permutation(train_files), train_ncands_limit)
+        log(f"{len(train_files)} training samples", logfile)
+        if valid_ncands_limit < np.inf:
+            valid_files = take_subset(valid_files, valid_ncands_limit)
+        log(f"{len(valid_files)} validation samples", logfile)
+
+        train_files = [str(x) for x in train_files]
+        valid_files = [str(x) for x in valid_files]
+
+        valid_data = tf.data.Dataset.from_tensor_slices(valid_files)
+        valid_data = valid_data.batch(valid_batch_size)
+        valid_data = valid_data.map(load_batch_tf)
+
+        # TODO Debug
+        # load_batch_tf([tf.constant('data\\samples\\facilities\\100_100_5\\train\\sample_1.pkl')])
+
+        valid_data = valid_data.prefetch(1)
+
+        pretrain_files = [f for i, f in enumerate(train_files) if i % 10 == 0]
+        pretrain_data = tf.data.Dataset.from_tensor_slices(pretrain_files)
+        pretrain_data = pretrain_data.batch(pretrain_batch_size)
+        pretrain_data = pretrain_data.map(load_batch_tf)
+        pretrain_data = pretrain_data.prefetch(1)
+
+        ### MODEL LOADING ###
+        model = importlib.import_module(f'models.{args.model}.model')
+        # sys.path.insert(0, os.path.abspath(f'models/{args.model}'))
+        # import model
+        # importlib.reload(model)
+        model = model.GCNPolicy()
+        # del sys.path[0]
+        
+
+        ### TRAINING LOOP ###
+        optimizer = tf.keras.optimizers.Adam(learning_rate=lambda: lr)  # dynamic LR trick
+        best_loss = np.inf
+        for epoch in range(max_epochs + 1):
+            log(f"EPOCH {epoch}...", logfile)
+            epoch_loss_avg = tf.keras.metrics.Mean()
+            epoch_accuracy = tf.keras.metrics.Accuracy()
+
+            # TRAIN
+            if epoch == 0:
+                n = pretrain(model=model, dataloader=pretrain_data)
+                log(f"PRETRAINED {n} LAYERS", logfile)
+                # model compilation
+                # model.call = tf.function(model.call, input_signature=model.input_signature)
+            else:
+                # bugfix: tensorflow's shuffle() seems broken...
+                epoch_train_files = rng.choice(train_files, epoch_size * batch_size, replace=True)
+                train_data = tf.data.Dataset.from_tensor_slices(epoch_train_files)
+                train_data = train_data.batch(batch_size)
+                train_data = train_data.map(load_batch_tf)
+                train_data = train_data.prefetch(1)
+                train_loss, train_kacc = process(model, train_data, top_k, optimizer)
+                log(f"TRAIN LOSS: {train_loss:0.3f} " + "".join([f" acc@{k}: {acc:0.3f}" for k, acc in zip(top_k, train_kacc)]), logfile)
+
+            # TEST
+            # 第一次 valid: VALID LOSS: 39.318  acc@1: 0.440 acc@3: 0.785 acc@5: 0.915 acc@10: 0.995
+            # 所以 acc@10 本身就很高; 不过和论文中也匹配，facilities这类问题acc@10就是很高
+            valid_loss, valid_kacc = process(model, valid_data, top_k, None)
+            log(f"VALID LOSS: {valid_loss:0.3f} " + "".join([f" acc@{k}: {acc:0.3f}" for k, acc in zip(top_k, valid_kacc)]), logfile)
+
+            if valid_loss < best_loss:
+                plateau_count = 0
+                best_loss = valid_loss
+                model.save_state(os.path.join(running_dir, 'best_params.pkl'))
+                log(f"  best model so far", logfile)
+            else:
+                plateau_count += 1
+                if plateau_count % early_stopping == 0:
+                    log(f"  {plateau_count} epochs without improvement, early stopping", logfile)
+                    break
+                if plateau_count % patience == 0:
+                    lr *= 0.2
+                    log(f"  {plateau_count} epochs without improvement, decreasing learning rate to {lr}", logfile)
+
+        model.restore_state(os.path.join(running_dir, 'best_params.pkl'))
         valid_loss, valid_kacc = process(model, valid_data, top_k, None)
-        log(f"VALID LOSS: {valid_loss:0.3f} " + "".join([f" acc@{k}: {acc:0.3f}" for k, acc in zip(top_k, valid_kacc)]), logfile)
-
-        if valid_loss < best_loss:
-            plateau_count = 0
-            best_loss = valid_loss
-            model.save_state(os.path.join(running_dir, 'best_params.pkl'))
-            log(f"  best model so far", logfile)
-        else:
-            plateau_count += 1
-            if plateau_count % early_stopping == 0:
-                log(f"  {plateau_count} epochs without improvement, early stopping", logfile)
-                break
-            if plateau_count % patience == 0:
-                lr *= 0.2
-                log(f"  {plateau_count} epochs without improvement, decreasing learning rate to {lr}", logfile)
-
-    model.restore_state(os.path.join(running_dir, 'best_params.pkl'))
-    valid_loss, valid_kacc = process(model, valid_data, top_k, None)
-    log(f"BEST VALID LOSS: {valid_loss:0.3f} " + "".join([f" acc@{k}: {acc:0.3f}" for k, acc in zip(top_k, valid_kacc)]), logfile)
+        log(f"BEST VALID LOSS: {valid_loss:0.3f} " + "".join([f" acc@{k}: {acc:0.3f}" for k, acc in zip(top_k, valid_kacc)]), logfile)
 

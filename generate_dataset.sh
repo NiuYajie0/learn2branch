@@ -1,0 +1,1 @@
+python 'S04_test.py' 'facilities' '--sampling' 'depthK'

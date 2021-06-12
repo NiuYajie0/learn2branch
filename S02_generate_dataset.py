@@ -13,7 +13,7 @@ import utilities
 
 class SamplingAgent(scip.Branchrule):
 
-    def __init__(self, episode, instance, seed, out_queue, exploration_policy, query_expert_prob, out_dir, follow_expert=True):
+    def __init__(self, episode, instance, seed, out_queue, exploration_policy, query_expert_prob, out_dir, follow_expert=True, sampleForTraining=True):
         self.episode = episode
         self.instance = instance
         self.seed = seed
@@ -26,9 +26,15 @@ class SamplingAgent(scip.Branchrule):
         self.rng = np.random.default_rng(seed)
         self.new_node = True
         self.sample_counter = 0
+        self.depthK = 10
+        self.NNodeK = 20
+        self.sampleForTraining = sampleForTraining
 
     def branchinit(self):
         self.khalil_root_buffer = {}
+
+    def branchexitsol(self):
+        pass
 
     def branchexeclp(self, allowaddcons):
 
@@ -36,8 +42,10 @@ class SamplingAgent(scip.Branchrule):
             # initialize root buffer for Khalil features extraction
             utilities.extract_khalil_variable_features(self.model, [], self.khalil_root_buffer)
 
+        # 重新收集一次，同时记录每个episode的NNodes分布
+
         # once in a while, also run the expert policy and record the (state, action) pair
-        query_expert = self.rng.random() < self.query_expert_prob
+        query_expert = (self.rng.random() < self.query_expert_prob) or (self.sampleForTraining and (self.model.getDepth() < self.depthK) and (self.model.getNNodes() <= self.NNodeK))
         if query_expert:
             state = utilities.extract_state(self.model)
             cands, *_ = self.model.getPseudoBranchCands()
@@ -95,7 +103,7 @@ class SamplingAgent(scip.Branchrule):
         return {"result": result}
 
 
-def make_samples(in_queue, out_queue):
+def make_samples(in_queue, out_queue, forTraining=True):
     """
     Worker loop: fetch an instance, run an episode and record samples.
 
@@ -125,7 +133,8 @@ def make_samples(in_queue, out_queue):
             out_queue=out_queue,
             exploration_policy=exploration_policy,
             query_expert_prob=query_expert_prob,
-            out_dir=out_dir)
+            out_dir=out_dir,
+            sampleForTraining=forTraining)
 
         m.includeBranchrule(
             branchrule=branchrule,
@@ -191,7 +200,7 @@ def send_orders(orders_queue, instances, seed, exploration_policy, query_expert_
 
 
 def collect_samples(instances, out_dir, rng, n_samples, n_jobs,
-                    exploration_policy, query_expert_prob, time_limit):
+                    exploration_policy, query_expert_prob, time_limit, forTraining=True):
     """
     Runs branch-and-bound episodes on the given set of instances, and collects
     randomly (state, action) pairs from the 'vanilla-fullstrong' expert
@@ -226,7 +235,7 @@ def collect_samples(instances, out_dir, rng, n_samples, n_jobs,
     for i in range(n_jobs):
         p = mp.Process(
                 target=make_samples,
-                args=(orders_queue, answers_queue),
+                args=(orders_queue, answers_queue, forTraining),
                 daemon=True)
         workers.append(p)
         p.start()
@@ -316,7 +325,14 @@ if __name__ == '__main__':
         type=int,
         default=1,
     )
+    parser.add_argument(
+        '--sampling',
+        help='Sampling Strategy',
+        choices=['uniform_5', 'depthK'],
+        default='uniform_5'
+    )
     args = parser.parse_args()
+    samplingStrategy = args.sampling
 
     print(f"seed {args.seed}")
 
@@ -331,25 +347,25 @@ if __name__ == '__main__':
         instances_train = glob.glob('data/instances/setcover/train_500r_1000c_0.05d/*.lp')
         instances_valid = glob.glob('data/instances/setcover/valid_500r_1000c_0.05d/*.lp')
         instances_test = glob.glob('data/instances/setcover/test_500r_1000c_0.05d/*.lp')
-        out_dir = 'data/samples/setcover/500r_1000c_0.05d'
+        out_dir = f'data/samples/setcover/500r_1000c_0.05d({samplingStrategy})'
 
     elif args.problem == 'cauctions':
         instances_train = glob.glob('data/instances/cauctions/train_100_500/*.lp')
         instances_valid = glob.glob('data/instances/cauctions/valid_100_500/*.lp')
         instances_test = glob.glob('data/instances/cauctions/test_100_500/*.lp')
-        out_dir = 'data/samples/cauctions/100_500'
+        out_dir = 'data/samples/cauctions/100_500({samplingStrategy})'
 
     elif args.problem == 'indset':
         instances_train = glob.glob('data/instances/indset/train_500_4/*.lp')
         instances_valid = glob.glob('data/instances/indset/valid_500_4/*.lp')
         instances_test = glob.glob('data/instances/indset/test_500_4/*.lp')
-        out_dir = 'data/samples/indset/500_4'
+        out_dir = 'data/samples/indset/500_4({samplingStrategy})'
 
     elif args.problem == 'facilities':
         instances_train = glob.glob('data/instances/facilities/train_100_100_5/*.lp')
         instances_valid = glob.glob('data/instances/facilities/valid_100_100_5/*.lp')
         instances_test = glob.glob('data/instances/facilities/test_100_100_5/*.lp')
-        out_dir = 'data/samples/facilities/100_100_5'
+        out_dir = 'data/samples/facilities/100_100_5({samplingStrategy})'
         time_limit = 600
 
     elif args.problem == 'chargePark_env':
@@ -367,22 +383,22 @@ if __name__ == '__main__':
     print(f"{len(instances_test)} test instances for {test_size} samples")
 
     # create output directory, throws an error if it already exists
-    os.makedirs(out_dir+'_pztest')
+    os.makedirs(out_dir)
 
     rng = np.random.default_rng(args.seed)
     collect_samples(instances_train, out_dir + '/train', rng, train_size,
                     args.njobs, exploration_policy=exploration_strategy,
                     query_expert_prob=node_record_prob,
-                    time_limit=time_limit)
+                    time_limit=time_limit, forTraining=True)
 
     rng = np.random.default_rng(args.seed + 1)
     collect_samples(instances_valid, out_dir + '/valid', rng, test_size,
                     args.njobs, exploration_policy=exploration_strategy,
                     query_expert_prob=node_record_prob,
-                    time_limit=time_limit)
+                    time_limit=time_limit, forTraining=False)
 
     rng = np.random.default_rng(args.seed + 2)
     collect_samples(instances_test, out_dir + '/test', rng, test_size,
                     args.njobs, exploration_policy=exploration_strategy,
                     query_expert_prob=node_record_prob,
-                    time_limit=time_limit)
+                    time_limit=time_limit, forTraining=False)

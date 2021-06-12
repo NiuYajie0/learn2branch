@@ -10,9 +10,9 @@ import pathlib
 import gzip
 
 import tensorflow as tf
-import tensorflow.contrib.eager as tfe
+# import tensorflow.contrib.eager as tfe
 
-import svmrank
+# import svmrank
 
 import utilities
 
@@ -126,23 +126,38 @@ if __name__ == '__main__':
         type=int,
         default=0,
     )
+    parser.add_argument(
+        '--sampling',
+        help='Sampling Strategy',
+        choices=['uniform_5', 'depthK'],
+        default='uniform_5'
+    )
+    parser.add_argument(
+        '-s', '--seeds',
+        help='Random generator seeds as a python list or range representation.',
+        # type=utilities.valid_seed,
+        default="range(0,5)",
+    )
     args = parser.parse_args()
 
     print(f"problem: {args.problem}")
     print(f"gpu: {args.gpu}")
+    print(f"sampling: {args.sampling}")
 
     os.makedirs("results", exist_ok=True)
     # result_file = f"results/{args.problem}_validation_{time.strftime('%Y%m%d-%H%M%S')}.csv"
-    seeds = [0, 1, 2, 3, 4]
+    seeds = eval(args.seeds) # TODO
+    # seeds = [0, 1]
     gcnn_models = ['baseline']
-    other_models = ['extratrees_gcnn_agg', 'lambdamart_khalil', 'svmrank_khalil']
+    # other_models = ['extratrees_gcnn_agg', 'lambdamart_khalil', 'svmrank_khalil']
+    other_models = []
     test_batch_size = 16
     top_k = [1, 3, 5, 10]
 
     problem_folders = {
         'setcover': 'setcover/500r_1000c_0.05d',
         'cauctions': 'cauctions/100_500',
-        'facilities': 'facilities/100_100_5',
+        'facilities': f'facilities/100_100_5({args.sampling})', # TODO problem folder
         'indset': 'indset/500_4',
     }
     problem_folder = problem_folders[args.problem]
@@ -150,20 +165,19 @@ if __name__ == '__main__':
     if args.problem == 'setcover':
         gcnn_models += ['mean_convolution', 'no_prenorm']
 
-    result_file = f"results/{args.problem}_test_{time.strftime('%Y%m%d-%H%M%S')}"
+    result_file = f"results/{args.problem}_{args.sampling}_test_{time.strftime('%Y%m%d-%H%M%S')}"
 
     result_file = result_file + '.csv'
     # os.makedirs('results', exist_ok=True)
 
-    ### TENSORFLOW SETUP ###
+    ### TENSORFLOW SETUP ### 
     if args.gpu == -1:
-        os.environ['CUDA_VISIBLE_DEVICES'] = ''
+        tf.config.set_visible_devices(tf.config.list_physical_devices('CPU')[0])
     else:
-        os.environ['CUDA_VISIBLE_DEVICES'] = f'{args.gpu}'
-    config = tf.ConfigProto()
-    config.gpu_options.allow_growth = True
-    tf.enable_eager_execution(config)
-    tf.executing_eagerly()
+        cpu_devices = tf.config.list_physical_devices('CPU') 
+        gpu_devices = tf.config.list_physical_devices('GPU') 
+        tf.config.set_visible_devices([cpu_devices[0], gpu_devices[args.gpu]])
+        tf.config.experimental.set_memory_growth(gpu_devices[args.gpu], True)
 
     test_files = list(pathlib.Path(f"data/samples/{problem_folder}/test").glob('sample_*.pkl'))
     test_files = [str(x) for x in test_files]
@@ -185,8 +199,8 @@ if __name__ == '__main__':
         for policy_type, policy_name in evaluated_policies:
             print(f"{policy_type}:{policy_name}...")
             for seed in seeds:
-                rng = np.random.RandomState(seed)
-                tf.set_random_seed(rng.randint(np.iinfo(int).max))
+                rng = np.random.default_rng(seed)
+                tf.random.set_seed(rng.integers(np.iinfo(int).max))
 
                 policy = {}
                 policy['name'] = policy_name
@@ -194,13 +208,15 @@ if __name__ == '__main__':
 
                 if policy['type'] == 'gcnn':
                     # load model
-                    sys.path.insert(0, os.path.abspath(f"models/{policy['name']}"))
-                    import model
-                    importlib.reload(model)
-                    del sys.path[0]
+                    # sys.path.insert(0, os.path.abspath(f"models/{policy['name']}"))
+                    model = importlib.import_module(f"models.{policy['name']}.model")
                     policy['model'] = model.GCNPolicy()
-                    policy['model'].restore_state(f"trained_models/{args.problem}/{policy['name']}/{seed}/best_params.pkl")
-                    policy['model'].call = tfe.defun(policy['model'].call, input_signature=policy['model'].input_signature)
+                    
+                    policy['model'] = model.GCNPolicy()
+                    # TODO
+                    # policy['model'].restore_state(f"trained_models/{args.problem}/{policy['name']}/{seed}/best_params.pkl")
+                    policy['model'].restore_state(f"trained_models/{args.problem}/{args.sampling}/{seed}/best_params.pkl")
+                    # policy['model'].call = tfe.defun(policy['model'].call, input_signature=policy['model'].input_signature)
                     policy['batch_datatypes'] = [tf.float32, tf.int32, tf.float32,
                             tf.float32, tf.int32, tf.int32, tf.int32, tf.int32, tf.int32, tf.float32]
                     policy['batch_fun'] = load_batch_gcnn
@@ -228,7 +244,7 @@ if __name__ == '__main__':
 
                 test_data = tf.data.Dataset.from_tensor_slices(test_files)
                 test_data = test_data.batch(test_batch_size)
-                test_data = test_data.map(lambda x: tf.py_func(
+                test_data = test_data.map(lambda x: tf.py_function(
                     policy['batch_fun'], [x], policy['batch_datatypes']))
                 test_data = test_data.prefetch(2)
 
@@ -240,7 +256,7 @@ if __name__ == '__main__':
                         'policy': f"{policy['type']}:{policy['name']}",
                         'seed': seed,
                     },
-                    **{1
+                    **{
                         f'acc@{k}': test_kacc[i] for i, k in enumerate(top_k)
                     },
                 })
