@@ -527,9 +527,16 @@ if __name__ == '__main__':
         type=utilities.valid_seed,
         default=0,
     )
+    parser.add_argument(
+        '-n', '--n_instances',
+        help='Number of generated instances as (n_train_instances, n_valid_instances, n_transfer_instances, n_test_instances).',
+        default="(100, 20, 10, 20)",
+    )
     args = parser.parse_args()
 
     rng = np.random.default_rng(args.seed)
+
+    n_train_instances, n_valid_instances, n_transfer_instances, n_test_instances = eval(args.n_instances)
 
     if args.problem == 'setcover':
         nrows = 500
@@ -543,7 +550,7 @@ if __name__ == '__main__':
         denss = []
 
         # train instances
-        n = 100
+        n = n_train_instances
         lp_dir = f'data/instances/setcover/train_{nrows}r_{ncols}c_{dens}d'
         print(f"{n} instances in {lp_dir}")
         os.makedirs(lp_dir)
@@ -553,7 +560,7 @@ if __name__ == '__main__':
         denss.extend([dens] * n)
 
         # validation instances
-        n = 20
+        n = n_valid_instances 
         lp_dir = f'data/instances/setcover/valid_{nrows}r_{ncols}c_{dens}d'
         print(f"{n} instances in {lp_dir}")
         os.makedirs(lp_dir)
@@ -563,7 +570,7 @@ if __name__ == '__main__':
         denss.extend([dens] * n)
 
         # small transfer instances
-        n = 10
+        n = n_transfer_instances
         nrows = 500
         lp_dir = f'data/instances/setcover/transfer_{nrows}r_{ncols}c_{dens}d'
         print(f"{n} instances in {lp_dir}")
@@ -574,7 +581,7 @@ if __name__ == '__main__':
         denss.extend([dens] * n)
 
         # medium transfer instances
-        n = 10
+        n = n_transfer_instances
         nrows = 1000
         lp_dir = f'data/instances/setcover/transfer_{nrows}r_{ncols}c_{dens}d'
         print(f"{n} instances in {lp_dir}")
@@ -585,7 +592,7 @@ if __name__ == '__main__':
         denss.extend([dens] * n)
 
         # big transfer instances
-        n = 10
+        n = n_transfer_instances
         nrows = 2000
         lp_dir = f'data/instances/setcover/transfer_{nrows}r_{ncols}c_{dens}d'
         print(f"{n} instances in {lp_dir}")
@@ -596,7 +603,7 @@ if __name__ == '__main__':
         denss.extend([dens] * n)
 
         # test instances
-        n = 20
+        n = n_test_instances
         nrows = 500
         ncols = 1000
         lp_dir = f'data/instances/setcover/test_{nrows}r_{ncols}c_{dens}d'
@@ -622,7 +629,7 @@ if __name__ == '__main__':
         nnodess = []
 
         # train instances
-        n = 10000
+        n = n_train_instances
         lp_dir = f'data/instances/indset/train_{number_of_nodes}_{affinity}'
         print(f"{n} instances in {lp_dir}")
         os.makedirs(lp_dir)
@@ -630,7 +637,7 @@ if __name__ == '__main__':
         nnodess.extend([number_of_nodes] * n)
 
         # validation instances
-        n = 2000
+        n = n_valid_instances
         lp_dir = f'data/instances/indset/valid_{number_of_nodes}_{affinity}'
         print(f"{n} instances in {lp_dir}")
         os.makedirs(lp_dir)
@@ -638,7 +645,7 @@ if __name__ == '__main__':
         nnodess.extend([number_of_nodes] * n)
 
         # small transfer instances
-        n = 100
+        n = n_transfer_instances
         number_of_nodes = 500
         lp_dir = f'data/instances/indset/transfer_{number_of_nodes}_{affinity}'
         print(f"{n} instances in {lp_dir}")
@@ -647,7 +654,7 @@ if __name__ == '__main__':
         nnodess.extend([number_of_nodes] * n)
 
         # medium transfer instances
-        n = 100
+        n = n_transfer_instances
         number_of_nodes = 1000
         lp_dir = f'data/instances/indset/transfer_{number_of_nodes}_{affinity}'
         print(f"{n} instances in {lp_dir}")
@@ -656,7 +663,7 @@ if __name__ == '__main__':
         nnodess.extend([number_of_nodes] * n)
 
         # big transfer instances
-        n = 100
+        n = n_transfer_instances
         number_of_nodes = 1500
         lp_dir = f'data/instances/indset/transfer_{number_of_nodes}_{affinity}'
         print(f"{n} instances in {lp_dir}")
@@ -665,7 +672,7 @@ if __name__ == '__main__':
         nnodess.extend([number_of_nodes] * n)
 
         # test instances
-        n = 2000
+        n = n_test_instances
         number_of_nodes = 500
         lp_dir = f'data/instances/indset/test_{number_of_nodes}_{affinity}'
         print(f"{n} instances in {lp_dir}")
@@ -689,7 +696,7 @@ if __name__ == '__main__':
         nbidss = []
 
         # train instances
-        n = 10000
+        n = n_train_instances
         lp_dir = f'data/instances/cauctions/train_{number_of_items}_{number_of_bids}'
         print(f"{n} instances in {lp_dir}")
         os.makedirs(lp_dir)
@@ -698,7 +705,7 @@ if __name__ == '__main__':
         nbidss.extend([number_of_bids ] * n)
 
         # validation instances
-        n = 2000
+        n = n_valid_instances
         lp_dir = f'data/instances/cauctions/valid_{number_of_items}_{number_of_bids}'
         print(f"{n} instances in {lp_dir}")
         os.makedirs(lp_dir)
@@ -707,7 +714,7 @@ if __name__ == '__main__':
         nbidss.extend([number_of_bids ] * n)
 
         # small transfer instances
-        n = 100
+        n = n_transfer_instances
         number_of_items = 100
         number_of_bids = 500
         lp_dir = f'data/instances/cauctions/transfer_{number_of_items}_{number_of_bids}'
@@ -718,7 +725,7 @@ if __name__ == '__main__':
         nbidss.extend([number_of_bids ] * n)
 
         # medium transfer instances
-        n = 100
+        n = n_transfer_instances
         number_of_items = 200
         number_of_bids = 1000
         lp_dir = f'data/instances/cauctions/transfer_{number_of_items}_{number_of_bids}'
@@ -729,7 +736,7 @@ if __name__ == '__main__':
         nbidss.extend([number_of_bids ] * n)
 
         # big transfer instances
-        n = 100
+        n = n_transfer_instances
         number_of_items = 300
         number_of_bids = 1500
         lp_dir = f'data/instances/cauctions/transfer_{number_of_items}_{number_of_bids}'
@@ -740,7 +747,7 @@ if __name__ == '__main__':
         nbidss.extend([number_of_bids ] * n)
 
         # test instances
-        n = 2000
+        n = n_test_instances
         number_of_items = 100
         number_of_bids = 500
         lp_dir = f'data/instances/cauctions/test_{number_of_items}_{number_of_bids}'
@@ -767,7 +774,7 @@ if __name__ == '__main__':
         ratios = []
 
         # train instances
-        n = 100
+        n = n_train_instances
         lp_dir = f'data/instances/facilities/train_{number_of_customers}_{number_of_facilities}_{ratio}'
         print(f"{n} instances in {lp_dir}")
         os.makedirs(lp_dir)
@@ -777,7 +784,7 @@ if __name__ == '__main__':
         ratios.extend([ratio] * n)
 
         # validation instances
-        n = 20
+        n = n_valid_instances
         lp_dir = f'data/instances/facilities/valid_{number_of_customers}_{number_of_facilities}_{ratio}'
         print(f"{n} instances in {lp_dir}")
         os.makedirs(lp_dir)
@@ -787,7 +794,7 @@ if __name__ == '__main__':
         ratios.extend([ratio] * n)
 
         # small transfer instances
-        n = 10
+        n = n_transfer_instances
         number_of_customers = 100
         number_of_facilities = 100
         lp_dir = f'data/instances/facilities/transfer_{number_of_customers}_{number_of_facilities}_{ratio}'
@@ -799,7 +806,7 @@ if __name__ == '__main__':
         ratios.extend([ratio] * n)
 
         # medium transfer instances
-        n = 10
+        n = n_transfer_instances
         number_of_customers = 200
         lp_dir = f'data/instances/facilities/transfer_{number_of_customers}_{number_of_facilities}_{ratio}'
         print(f"{n} instances in {lp_dir}")
@@ -810,7 +817,7 @@ if __name__ == '__main__':
         ratios.extend([ratio] * n)
 
         # big transfer instances
-        n = 10
+        n = n_transfer_instances
         number_of_customers = 400
         lp_dir = f'data/instances/facilities/transfer_{number_of_customers}_{number_of_facilities}_{ratio}'
         print(f"{n} instances in {lp_dir}")
@@ -821,7 +828,7 @@ if __name__ == '__main__':
         ratios.extend([ratio] * n)
 
         # test instances
-        n = 20
+        n = n_test_instances
         number_of_customers = 100
         number_of_facilities = 100
         lp_dir = f'data/instances/facilities/test_{number_of_customers}_{number_of_facilities}_{ratio}'
