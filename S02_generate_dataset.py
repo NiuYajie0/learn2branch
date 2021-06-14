@@ -9,11 +9,12 @@ import gzip
 
 import pyscipopt as scip
 import utilities
+import pandas as pd
 
 
 class SamplingAgent(scip.Branchrule):
 
-    def __init__(self, episode, instance, seed, out_queue, exploration_policy, query_expert_prob, out_dir, follow_expert=True, samplingStrategy='uniform_5', sampleForTraining=True):
+    def __init__(self, episode, instance, seed, out_queue, exploration_policy, query_expert_prob, out_dir, trueOutDir, follow_expert=True, samplingStrategy='uniform_5', sampleForTraining=True):
         self.episode = episode
         self.instance = instance
         self.seed = seed
@@ -22,6 +23,7 @@ class SamplingAgent(scip.Branchrule):
         self.query_expert_prob = query_expert_prob
         self.out_dir = out_dir
         self.follow_expert = follow_expert
+        self.visited_maxDepth = 0
 
         self.rng = np.random.default_rng(seed)
         self.new_node = True
@@ -30,12 +32,21 @@ class SamplingAgent(scip.Branchrule):
         self.NNodeK = 20
         self.samplingStrategy = samplingStrategy
         self.sampleForTraining = sampleForTraining
+        self.trueOutDir = trueOutDir
+        self.SolStatsSummary_file = 'SolStats.csv'
 
     def branchinit(self):
         self.khalil_root_buffer = {}
 
     def branchexitsol(self):
-        pass
+        df = pd.DataFrame()
+        df['episode'] = [self.episode]
+        df['instance'] = [self.instance]
+        df['visitedNNodes'] = [self.model.getNNodes()]
+        df['maxDepth'] = [self.visited_maxDepth]
+
+        with open(f"{self.trueOutDir}/{self.SolStatsSummary_file}", 'a') as f:
+            df.to_csv(f, header=False)
 
     def branchexeclp(self, allowaddcons):
 
@@ -45,11 +56,15 @@ class SamplingAgent(scip.Branchrule):
 
         # 重新收集一次，同时记录每个episode的NNodes分布
 
+        depth = self.model.getDepth()
+        if self.visited_maxDepth < depth:
+            self.visited_maxDepth = depth
+
         # once in a while, also run the expert policy and record the (state, action) pair
         if self.samplingStrategy == 'uniform_5':
             query_expert = (self.rng.random() < self.query_expert_prob)
         elif self.samplingStrategy == 'depthK':
-            query_expert = (self.rng.random() < self.query_expert_prob) or (self.sampleForTraining and (self.model.getDepth() < self.depthK) and (self.model.getNNodes() <= self.NNodeK))
+            query_expert = (self.rng.random() < self.query_expert_prob) or (self.sampleForTraining and (depth < self.depthK) and (self.model.getNNodes() <= self.NNodeK))
         else:
             raise ValueError("Argument samplingStrategy can only be chosen from ['uniform_5', 'depthK']")
 
@@ -110,7 +125,7 @@ class SamplingAgent(scip.Branchrule):
         return {"result": result}
 
 
-def make_samples(in_queue, out_queue, samplingStrategy, forTraining=True):
+def make_samples(in_queue, out_queue, samplingStrategy, trueOutDir, forTraining=True):
     """
     Worker loop: fetch an instance, run an episode and record samples.
 
@@ -141,6 +156,7 @@ def make_samples(in_queue, out_queue, samplingStrategy, forTraining=True):
             exploration_policy=exploration_policy,
             query_expert_prob=query_expert_prob,
             out_dir=out_dir,
+            trueOutDir=trueOutDir,
             samplingStrategy=samplingStrategy,
             sampleForTraining=forTraining)
 
@@ -236,6 +252,14 @@ def collect_samples(instances, out_dir, rng, n_samples, n_jobs,
     """
     os.makedirs(out_dir, exist_ok=True)
 
+    samplingStatsSummary_file = 'SolStats.csv'
+    df = pd.DataFrame()
+    df['episode'] = []
+    df['instance'] = []
+    df['visitedNNodes'] = []
+    df['maxDepth'] = []
+    df.to_csv(f'{out_dir}/{samplingStatsSummary_file}')
+
     # start workers
     orders_queue = mp.Queue(maxsize=2*n_jobs)
     answers_queue = mp.SimpleQueue()
@@ -243,7 +267,7 @@ def collect_samples(instances, out_dir, rng, n_samples, n_jobs,
     for i in range(n_jobs):
         p = mp.Process(
                 target=make_samples,
-                args=(orders_queue, answers_queue, samplingStrategy, forTraining),
+                args=(orders_queue, answers_queue, samplingStrategy, out_dir, forTraining),
                 daemon=True)
         workers.append(p)
         p.start()
