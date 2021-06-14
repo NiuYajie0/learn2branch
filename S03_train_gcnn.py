@@ -179,10 +179,10 @@ if __name__ == '__main__':
         
 
         problem_folders = {
-            'setcover': 'setcover/500r_1000c_0.05d({sampling_strategy})',
-            'cauctions': 'cauctions/100_500({sampling_strategy})',
+            'setcover': f'setcover/500r_1000c_0.05d({sampling_strategy})',
+            'cauctions': f'cauctions/100_500({sampling_strategy})',
             'facilities': f'facilities/100_100_5({sampling_strategy})', # TODO
-            'indset': 'indset/500_4({sampling_strategy})',
+            'indset': f'indset/500_4({sampling_strategy})',
         }
         problem_folder = problem_folders[args.problem]
 

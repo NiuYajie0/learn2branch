@@ -155,15 +155,15 @@ if __name__ == '__main__':
     top_k = [1, 3, 5, 10]
 
     problem_folders = {
-        'setcover': 'setcover/500r_1000c_0.05d',
-        'cauctions': 'cauctions/100_500',
+        'setcover': f'setcover/500r_1000c_0.05d({args.sampling})',
+        'cauctions': f'cauctions/100_500({args.sampling})',
         'facilities': f'facilities/100_100_5({args.sampling})', # TODO problem folder
-        'indset': 'indset/500_4',
+        'indset': f'indset/500_4({args.sampling})',
     }
     problem_folder = problem_folders[args.problem]
 
-    if args.problem == 'setcover':
-        gcnn_models += ['mean_convolution', 'no_prenorm']
+    # if args.problem == 'setcover':
+    #     gcnn_models += ['mean_convolution', 'no_prenorm']
 
     result_file = f"results/{args.problem}_{args.sampling}_test_{time.strftime('%Y%m%d-%H%M%S')}"
 

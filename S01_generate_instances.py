@@ -543,7 +543,7 @@ if __name__ == '__main__':
         denss = []
 
         # train instances
-        n = 10000
+        n = 100
         lp_dir = f'data/instances/setcover/train_{nrows}r_{ncols}c_{dens}d'
         print(f"{n} instances in {lp_dir}")
         os.makedirs(lp_dir)
@@ -553,7 +553,7 @@ if __name__ == '__main__':
         denss.extend([dens] * n)
 
         # validation instances
-        n = 2000
+        n = 20
         lp_dir = f'data/instances/setcover/valid_{nrows}r_{ncols}c_{dens}d'
         print(f"{n} instances in {lp_dir}")
         os.makedirs(lp_dir)
@@ -563,7 +563,7 @@ if __name__ == '__main__':
         denss.extend([dens] * n)
 
         # small transfer instances
-        n = 100
+        n = 10
         nrows = 500
         lp_dir = f'data/instances/setcover/transfer_{nrows}r_{ncols}c_{dens}d'
         print(f"{n} instances in {lp_dir}")
@@ -574,7 +574,7 @@ if __name__ == '__main__':
         denss.extend([dens] * n)
 
         # medium transfer instances
-        n = 100
+        n = 10
         nrows = 1000
         lp_dir = f'data/instances/setcover/transfer_{nrows}r_{ncols}c_{dens}d'
         print(f"{n} instances in {lp_dir}")
@@ -585,7 +585,7 @@ if __name__ == '__main__':
         denss.extend([dens] * n)
 
         # big transfer instances
-        n = 100
+        n = 10
         nrows = 2000
         lp_dir = f'data/instances/setcover/transfer_{nrows}r_{ncols}c_{dens}d'
         print(f"{n} instances in {lp_dir}")
@@ -596,7 +596,7 @@ if __name__ == '__main__':
         denss.extend([dens] * n)
 
         # test instances
-        n = 2000
+        n = 20
         nrows = 500
         ncols = 1000
         lp_dir = f'data/instances/setcover/test_{nrows}r_{ncols}c_{dens}d'

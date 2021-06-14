@@ -13,7 +13,7 @@ import utilities
 
 class SamplingAgent(scip.Branchrule):
 
-    def __init__(self, episode, instance, seed, out_queue, exploration_policy, query_expert_prob, out_dir, follow_expert=True, sampleForTraining=True):
+    def __init__(self, episode, instance, seed, out_queue, exploration_policy, query_expert_prob, out_dir, follow_expert=True, samplingStrategy='uniform_5', sampleForTraining=True):
         self.episode = episode
         self.instance = instance
         self.seed = seed
@@ -28,6 +28,7 @@ class SamplingAgent(scip.Branchrule):
         self.sample_counter = 0
         self.depthK = 10
         self.NNodeK = 20
+        self.samplingStrategy = samplingStrategy
         self.sampleForTraining = sampleForTraining
 
     def branchinit(self):
@@ -45,7 +46,13 @@ class SamplingAgent(scip.Branchrule):
         # 重新收集一次，同时记录每个episode的NNodes分布
 
         # once in a while, also run the expert policy and record the (state, action) pair
-        query_expert = (self.rng.random() < self.query_expert_prob) or (self.sampleForTraining and (self.model.getDepth() < self.depthK) and (self.model.getNNodes() <= self.NNodeK))
+        if self.samplingStrategy == 'uniform_5':
+            query_expert = (self.rng.random() < self.query_expert_prob)
+        elif self.samplingStrategy == 'depthK':
+            query_expert = (self.rng.random() < self.query_expert_prob) or (self.sampleForTraining and (self.model.getDepth() < self.depthK) and (self.model.getNNodes() <= self.NNodeK))
+        else:
+            raise ValueError("Argument samplingStrategy can only be chosen from ['uniform_5', 'depthK']")
+
         if query_expert:
             state = utilities.extract_state(self.model)
             cands, *_ = self.model.getPseudoBranchCands()
@@ -103,7 +110,7 @@ class SamplingAgent(scip.Branchrule):
         return {"result": result}
 
 
-def make_samples(in_queue, out_queue, forTraining=True):
+def make_samples(in_queue, out_queue, samplingStrategy, forTraining=True):
     """
     Worker loop: fetch an instance, run an episode and record samples.
 
@@ -134,6 +141,7 @@ def make_samples(in_queue, out_queue, forTraining=True):
             exploration_policy=exploration_policy,
             query_expert_prob=query_expert_prob,
             out_dir=out_dir,
+            samplingStrategy=samplingStrategy,
             sampleForTraining=forTraining)
 
         m.includeBranchrule(
@@ -200,7 +208,7 @@ def send_orders(orders_queue, instances, seed, exploration_policy, query_expert_
 
 
 def collect_samples(instances, out_dir, rng, n_samples, n_jobs,
-                    exploration_policy, query_expert_prob, time_limit, forTraining=True):
+                    exploration_policy, query_expert_prob, time_limit, samplingStrategy, forTraining=True):
     """
     Runs branch-and-bound episodes on the given set of instances, and collects
     randomly (state, action) pairs from the 'vanilla-fullstrong' expert
@@ -235,7 +243,7 @@ def collect_samples(instances, out_dir, rng, n_samples, n_jobs,
     for i in range(n_jobs):
         p = mp.Process(
                 target=make_samples,
-                args=(orders_queue, answers_queue, forTraining),
+                args=(orders_queue, answers_queue, samplingStrategy, forTraining),
                 daemon=True)
         workers.append(p)
         p.start()
@@ -328,7 +336,7 @@ if __name__ == '__main__':
     parser.add_argument(
         '--sampling',
         help='Sampling Strategy',
-        choices=['uniform_5', 'depthK'],
+        choices=['uniform_5', 'depthK', 'pztest'],
         default='uniform_5'
     )
     args = parser.parse_args()
@@ -389,16 +397,16 @@ if __name__ == '__main__':
     collect_samples(instances_train, out_dir + '/train', rng, train_size,
                     args.njobs, exploration_policy=exploration_strategy,
                     query_expert_prob=node_record_prob,
-                    time_limit=time_limit, forTraining=True)
+                    time_limit=time_limit, samplingStrategy=samplingStrategy, forTraining=True)
 
     rng = np.random.default_rng(args.seed + 1)
     collect_samples(instances_valid, out_dir + '/valid', rng, test_size,
                     args.njobs, exploration_policy=exploration_strategy,
                     query_expert_prob=node_record_prob,
-                    time_limit=time_limit, forTraining=False)
+                    time_limit=time_limit, samplingStrategy=samplingStrategy, forTraining=False)
 
     rng = np.random.default_rng(args.seed + 2)
     collect_samples(instances_test, out_dir + '/test', rng, test_size,
                     args.njobs, exploration_policy=exploration_strategy,
                     query_expert_prob=node_record_prob,
-                    time_limit=time_limit, forTraining=False)
+                    time_limit=time_limit, samplingStrategy=samplingStrategy, forTraining=False)
