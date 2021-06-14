@@ -33,6 +33,7 @@
             "args": [
                 "indset", // choices=['setcover', 'cauctions', 'facilities', 'indset']
                 "--sampling", "uniform_5", // choices: uniform_5, depthK, pztest
+                "--n_samples", "(1000, 200, 200)",
                 "--njobs", "9",
                 "-s 0",
             ],
@@ -56,7 +57,7 @@
             "console": "integratedTerminal",
             "args": [
                 "indset", // choices=['setcover', 'cauctions', 'facilities', 'indset']
-                "--sampling", "depthK", // choices: uniform_5, depthK
+                "--sampling", "uniform_5", // choices: uniform_5, depthK
                 "--seeds", "range(0,10)",
             ],
         },

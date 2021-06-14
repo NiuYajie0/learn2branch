@@ -319,9 +319,11 @@ def exp_main(args):
 
     print(f"seed {args.seed}")
 
-    train_size = 1000
-    valid_size = 200
-    test_size = 200
+    train_size, valid_size, test_size = eval(args.n_samples)
+
+    # train_size = 1000
+    # valid_size = 200
+    # test_size = 200
     exploration_strategy = 'pscost'
     node_record_prob = 0.05
     time_limit = 3600
@@ -411,6 +413,11 @@ if __name__ == '__main__':
         help='Sampling Strategy',
         choices=['uniform_5', 'depthK', 'pztest'],
         default='uniform_5'
+    )
+    parser.add_argument(
+        '-n', '--n_samples',
+        help='Number of generated n_samples as (train_size, valid_size, test_size).',
+        default="(1000, 200, 200)",
     )
     args = parser.parse_args()
     
