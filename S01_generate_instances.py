@@ -513,9 +513,10 @@ def generate_capacited_facility_location(rng, filename, n_customers, n_facilitie
         file.write("\nbinary\n")
         file.write("".join([f" y_{j+1}" for j in range(n_facilities)]))
 
-#%%
-if __name__ == '__main__':
-    parser = argparse.ArgumentParser()
+
+def exp_main(args):
+    '''
+    args:
     parser.add_argument(
         'problem',
         help='MILP instance type to process.',
@@ -532,7 +533,7 @@ if __name__ == '__main__':
         help='Number of generated instances as (n_train_instances, n_valid_instances, n_transfer_instances, n_test_instances).',
         default="(100, 20, 10, 20)",
     )
-    args = parser.parse_args()
+    '''
 
     rng = np.random.default_rng(args.seed)
 
@@ -845,3 +846,27 @@ if __name__ == '__main__':
             generate_capacited_facility_location(rng, filename, n_customers=ncs, n_facilities=nfs, ratio=r)
 
         print("done.")
+
+
+#%%
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        'problem',
+        help='MILP instance type to process.',
+        choices=['setcover', 'cauctions', 'facilities', 'indset'],
+    )
+    parser.add_argument(
+        '-s', '--seed',
+        help='Random generator seed (default 0).',
+        type=utilities.valid_seed,
+        default=0,
+    )
+    parser.add_argument(
+        '-n', '--n_instances',
+        help='Number of generated instances as (n_train_instances, n_valid_instances, n_transfer_instances, n_test_instances).',
+        default="(100, 20, 10, 20)",
+    )
+    args = parser.parse_args()
+
+    exp_main(args)

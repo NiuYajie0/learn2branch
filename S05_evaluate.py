@@ -123,22 +123,7 @@ class PolicyBranching(scip.Branchrule):
 
         return {'result': result}
 
-
-if __name__ == '__main__':
-    parser = argparse.ArgumentParser()
-    parser.add_argument(
-        'problem',
-        help='MILP instance type to process.',
-        choices=['setcover', 'cauctions', 'facilities', 'indset'],
-    )
-    parser.add_argument(
-        '-g', '--gpu',
-        help='CUDA GPU id (-1 for CPU).',
-        type=int,
-        default=0,
-    )
-    args = parser.parse_args()
-
+def exp_main(args):
     result_file = f"{args.problem}_{time.strftime('%Y%m%d-%H%M%S')}.csv"
     instances = []
     seeds = [0, 1, 2, 3, 4]
@@ -323,3 +308,20 @@ if __name__ == '__main__':
 
                 print(f"  {policy['type']}:{policy['name']} {policy['seed']} - {nnodes} ({nnodes+2*(ndomchgs+ncutoffs)}) nodes {nlps} lps {stime:.2f} ({walltime:.2f} wall {proctime:.2f} proc) s. {status}")
 
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        'problem',
+        help='MILP instance type to process.',
+        choices=['setcover', 'cauctions', 'facilities', 'indset'],
+    )
+    parser.add_argument(
+        '-g', '--gpu',
+        help='CUDA GPU id (-1 for CPU).',
+        type=int,
+        default=0,
+    )
+    args = parser.parse_args()
+
+    exp_main(args)

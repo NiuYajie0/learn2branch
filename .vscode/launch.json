@@ -20,7 +20,7 @@
             "program": "S01_generate_instances.py",
             "console": "integratedTerminal",
             "args": [
-                "cauctions", // choices=['setcover', 'cauctions', 'facilities', 'indset']
+                "indset", // choices=['setcover', 'cauctions', 'facilities', 'indset']
                 "--n_instances", "(100, 20, 10, 20)"
             ],
         },
@@ -31,7 +31,7 @@
             "program": "S02_generate_dataset.py",
             "console": "integratedTerminal",
             "args": [
-                "setcover", // choices=['setcover', 'cauctions', 'facilities', 'indset']
+                "indset", // choices=['setcover', 'cauctions', 'facilities', 'indset']
                 "--sampling", "uniform_5", // choices: uniform_5, depthK, pztest
                 "--njobs", "9",
                 "-s 0",
@@ -55,9 +55,9 @@
             "program": "S03_train_gcnn.py",
             "console": "integratedTerminal",
             "args": [
-                "setcover", // choices=['setcover', 'cauctions', 'facilities', 'indset']
-                "--sampling", "uniform_5", // choices: uniform_5, depthK
-                "--seeds", "range(0,20)",
+                "indset", // choices=['setcover', 'cauctions', 'facilities', 'indset']
+                "--sampling", "depthK", // choices: uniform_5, depthK
+                "--seeds", "range(0,10)",
             ],
         },
         {
@@ -67,8 +67,8 @@
             "program": "S04_test.py",
             "console": "integratedTerminal",
             "args": [
-                "setcover", // choices=['setcover', 'cauctions', 'facilities', 'indset']
-                "--sampling", "uniform_5",  // choices: uniform_5, depthK
+                "indset", // choices=['setcover', 'cauctions', 'facilities', 'indset']
+                "--sampling", "depthK",  // choices: uniform_5, depthK
                 "--seeds", "range(0,20)",
                 // "-g -1"
             ],

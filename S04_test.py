@@ -112,34 +112,7 @@ def process(policy, dataloader, top_k):
 
     return mean_kacc
 
-
-if __name__ == '__main__':
-    parser = argparse.ArgumentParser()
-    parser.add_argument(
-        'problem',
-        help='MILP instance type to process.',
-        choices=['setcover', 'cauctions', 'facilities', 'indset'],
-    )
-    parser.add_argument(
-        '-g', '--gpu',
-        help='CUDA GPU id (-1 for CPU).',
-        type=int,
-        default=0,
-    )
-    parser.add_argument(
-        '--sampling',
-        help='Sampling Strategy',
-        choices=['uniform_5', 'depthK'],
-        default='uniform_5'
-    )
-    parser.add_argument(
-        '-s', '--seeds',
-        help='Random generator seeds as a python list or range representation.',
-        # type=utilities.valid_seed,
-        default="range(0,5)",
-    )
-    args = parser.parse_args()
-
+def exp_main(exp):
     print(f"problem: {args.problem}")
     print(f"gpu: {args.gpu}")
     print(f"sampling: {args.sampling}")
@@ -261,3 +234,33 @@ if __name__ == '__main__':
                     },
                 })
                 csvfile.flush()
+
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        'problem',
+        help='MILP instance type to process.',
+        choices=['setcover', 'cauctions', 'facilities', 'indset'],
+    )
+    parser.add_argument(
+        '-g', '--gpu',
+        help='CUDA GPU id (-1 for CPU).',
+        type=int,
+        default=0,
+    )
+    parser.add_argument(
+        '--sampling',
+        help='Sampling Strategy',
+        choices=['uniform_5', 'depthK'],
+        default='uniform_5'
+    )
+    parser.add_argument(
+        '-s', '--seeds',
+        help='Random generator seeds as a python list or range representation.',
+        # type=utilities.valid_seed,
+        default="range(0,5)",
+    )
+    args = parser.parse_args()
+
+    exp_main(args)

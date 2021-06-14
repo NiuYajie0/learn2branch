@@ -125,40 +125,7 @@ def process(model, dataloader, top_k, optimizer=None):
 
     return mean_loss, mean_kacc
 
-
-if __name__ == '__main__':
-    parser = argparse.ArgumentParser()
-    parser.add_argument(
-        'problem',
-        help='MILP instance type to process.',
-        choices=['setcover', 'cauctions', 'facilities', 'indset'],
-    )
-    parser.add_argument(
-        '-m', '--model',
-        help='GCNN model to be trained.',
-        type=str,
-        default='baseline',
-    )
-    parser.add_argument(
-        '-s', '--seeds',
-        help='Random generator seeds as a python list or range representation.',
-        # type=utilities.valid_seed,
-        default="range(0,5)",
-    )
-    parser.add_argument(
-        '-g', '--gpu',
-        help='CUDA GPU id (-1 for CPU).',
-        type=int,
-        default=0,
-    )
-    parser.add_argument(
-        '--sampling',
-        help='Sampling Strategy',
-        choices=['uniform_5', 'depthK'],
-        default='uniform_5'
-    )
-    args = parser.parse_args()
-
+def exp_main(args):
     seeds = eval(args.seeds)
 
     for seed in seeds:
@@ -333,4 +300,39 @@ if __name__ == '__main__':
         model.restore_state(os.path.join(running_dir, 'best_params.pkl'))
         valid_loss, valid_kacc = process(model, valid_data, top_k, None)
         log(f"BEST VALID LOSS: {valid_loss:0.3f} " + "".join([f" acc@{k}: {acc:0.3f}" for k, acc in zip(top_k, valid_kacc)]), logfile)
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        'problem',
+        help='MILP instance type to process.',
+        choices=['setcover', 'cauctions', 'facilities', 'indset'],
+    )
+    parser.add_argument(
+        '-m', '--model',
+        help='GCNN model to be trained.',
+        type=str,
+        default='baseline',
+    )
+    parser.add_argument(
+        '-s', '--seeds',
+        help='Random generator seeds as a python list or range representation.',
+        # type=utilities.valid_seed,
+        default="range(0,5)",
+    )
+    parser.add_argument(
+        '-g', '--gpu',
+        help='CUDA GPU id (-1 for CPU).',
+        type=int,
+        default=0,
+    )
+    parser.add_argument(
+        '--sampling',
+        help='Sampling Strategy',
+        choices=['uniform_5', 'depthK'],
+        default='uniform_5'
+    )
+    args = parser.parse_args()
+
+    exp_main(args)
 

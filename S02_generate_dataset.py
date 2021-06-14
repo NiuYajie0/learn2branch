@@ -314,32 +314,7 @@ def collect_samples(instances, out_dir, rng, n_samples, n_jobs,
     shutil.rmtree(tmp_samples_dir, ignore_errors=True)
 
 
-if __name__ == '__main__':
-    parser = argparse.ArgumentParser()
-    parser.add_argument(
-        'problem',
-        help='MILP instance type to process.',
-        choices=['setcover', 'cauctions', 'facilities', 'indset', 'chargePark_env'],
-    )
-    parser.add_argument(
-        '-s', '--seed',
-        help='Random generator seed.',
-        type=utilities.valid_seed,
-        default=0,
-    )
-    parser.add_argument(
-        '-j', '--njobs',
-        help='Number of parallel jobs.',
-        type=int,
-        default=1,
-    )
-    parser.add_argument(
-        '--sampling',
-        help='Sampling Strategy',
-        choices=['uniform_5', 'depthK', 'pztest'],
-        default='uniform_5'
-    )
-    args = parser.parse_args()
+def exp_main(args):
     samplingStrategy = args.sampling
 
     print(f"seed {args.seed}")
@@ -361,27 +336,27 @@ if __name__ == '__main__':
         instances_train = glob.glob('data/instances/cauctions/train_100_500/*.lp')
         instances_valid = glob.glob('data/instances/cauctions/valid_100_500/*.lp')
         instances_test = glob.glob('data/instances/cauctions/test_100_500/*.lp')
-        out_dir = 'data/samples/cauctions/100_500({samplingStrategy})'
+        out_dir = f'data/samples/cauctions/100_500({samplingStrategy})'
 
     elif args.problem == 'indset':
         instances_train = glob.glob('data/instances/indset/train_500_4/*.lp')
         instances_valid = glob.glob('data/instances/indset/valid_500_4/*.lp')
         instances_test = glob.glob('data/instances/indset/test_500_4/*.lp')
-        out_dir = 'data/samples/indset/500_4({samplingStrategy})'
+        out_dir = f'data/samples/indset/500_4({samplingStrategy})'
 
     elif args.problem == 'facilities':
         instances_train = glob.glob('data/instances/facilities/train_100_100_5/*.lp')
         instances_valid = glob.glob('data/instances/facilities/valid_100_100_5/*.lp')
         instances_test = glob.glob('data/instances/facilities/test_100_100_5/*.lp')
-        out_dir = 'data/samples/facilities/100_100_5({samplingStrategy})'
+        out_dir = f'data/samples/facilities/100_100_5({samplingStrategy})'
         time_limit = 600
 
-    elif args.problem == 'chargePark_env':
-        instances_train = glob.glob('D:\ResearchData\GitHub\learn2branch\data\exported_problems\*.lp')
-        instances_valid = glob.glob('data/instances/facilities/valid_100_100_5/*.lp')
-        instances_test = glob.glob('data/instances/facilities/test_100_100_5/*.lp')
-        out_dir = 'data/samples/facilities/100_100_5'
-        time_limit = 600
+    # elif args.problem == 'chargePark_env':
+    #     instances_train = glob.glob('D:\ResearchData\GitHub\learn2branch\data\exported_problems\*.lp')
+    #     instances_valid = glob.glob('data/instances/facilities/valid_100_100_5/*.lp')
+    #     instances_test = glob.glob('data/instances/facilities/test_100_100_5/*.lp')
+    #     out_dir = 'data/samples/facilities/100_100_5'
+    #     time_limit = 600
 
     else:
         raise NotImplementedError
@@ -410,3 +385,33 @@ if __name__ == '__main__':
                     args.njobs, exploration_policy=exploration_strategy,
                     query_expert_prob=node_record_prob,
                     time_limit=time_limit, samplingStrategy=samplingStrategy, forTraining=False)
+
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        'problem',
+        help='MILP instance type to process.',
+        choices=['setcover', 'cauctions', 'facilities', 'indset', 'chargePark_env'],
+    )
+    parser.add_argument(
+        '-s', '--seed',
+        help='Random generator seed.',
+        type=utilities.valid_seed,
+        default=0,
+    )
+    parser.add_argument(
+        '-j', '--njobs',
+        help='Number of parallel jobs.',
+        type=int,
+        default=1,
+    )
+    parser.add_argument(
+        '--sampling',
+        help='Sampling Strategy',
+        choices=['uniform_5', 'depthK', 'pztest'],
+        default='uniform_5'
+    )
+    args = parser.parse_args()
+    
+    exp_main(args)

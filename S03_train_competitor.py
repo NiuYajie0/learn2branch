@@ -38,28 +38,7 @@ def load_samples(filenames, feat_type, label_type, augment, qbnorm, size_limit, 
 
     return x, y, ncands
 
-
-if __name__ == '__main__':
-    parser = argparse.ArgumentParser()
-    parser.add_argument(
-        'problem',
-        help='MILP instance type to process.',
-        choices=['setcover', 'cauctions', 'facilities', 'indset'],
-    )
-    parser.add_argument(
-        '-m', '--model',
-        help='Model to be trained.',
-        type=str,
-        choices=['svmrank', 'extratrees', 'lambdamart'],
-    )
-    parser.add_argument(
-        '-s', '--seed',
-        help='Random generator seed.',
-        type=utilities.valid_seed,
-        default=0,
-    )
-    args = parser.parse_args()
-
+def exp_main(args):
     feats_type = 'nbr_maxminmean'
 
     problem_folders = {
@@ -214,3 +193,27 @@ if __name__ == '__main__':
                 model.write(f"{running_dir}/model.txt")
 
         log(f"Best model with C={best_c}, validation loss: {best_loss}", logfile)
+
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        'problem',
+        help='MILP instance type to process.',
+        choices=['setcover', 'cauctions', 'facilities', 'indset'],
+    )
+    parser.add_argument(
+        '-m', '--model',
+        help='Model to be trained.',
+        type=str,
+        choices=['svmrank', 'extratrees', 'lambdamart'],
+    )
+    parser.add_argument(
+        '-s', '--seed',
+        help='Random generator seed.',
+        type=utilities.valid_seed,
+        default=0,
+    )
+    args = parser.parse_args()
+
+    exp_main(args)
