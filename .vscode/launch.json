@@ -70,7 +70,7 @@
             "args": [
                 "setcover", // choices=['setcover', 'cauctions', 'facilities', 'indset']
                 "--sampling", "depthK",  // choices: uniform_5, depthK
-                "--seeds", "range(0,20)",
+                "--seeds", "range(0,10)",
                 // "-g -1"
             ],
         },
