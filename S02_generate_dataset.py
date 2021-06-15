@@ -10,11 +10,11 @@ import gzip
 import pyscipopt as scip
 import utilities
 import pandas as pd
-
+import time
 
 class SamplingAgent(scip.Branchrule):
 
-    def __init__(self, episode, instance, seed, out_queue, exploration_policy, query_expert_prob, out_dir, trueOutDir, follow_expert=True, samplingStrategy='uniform_5', sampleForTraining=True):
+    def __init__(self, episode, instance, seed, out_queue, exploration_policy, query_expert_prob, out_dir, trueOutDir, problem, follow_expert=True, samplingStrategy='uniform_5', sampleForTraining=True):
         self.episode = episode
         self.instance = instance
         self.seed = seed
@@ -29,11 +29,20 @@ class SamplingAgent(scip.Branchrule):
         self.new_node = True
         self.sample_counter = 0
         self.depthK = 10
-        self.NNodeK = 20
+        if samplingStrategy=='depthK':
+            self.NNodeK = 20
+        else:
+            depthK2dict = {
+                'setcover' : 43, 
+                'cauctions' : 38, 
+                'facilities' : 20, 
+                'indset' : 10
+            }
+            self.NNodeK = depthK2dict[problem]
         self.samplingStrategy = samplingStrategy
         self.sampleForTraining = sampleForTraining
         self.trueOutDir = trueOutDir
-        self.SolStatsSummary_file = 'SolStats.csv'
+        self.SolStatsSummary_file = 'AllEpsSolStats.csv'
 
     def branchinit(self):
         self.khalil_root_buffer = {}
@@ -63,10 +72,10 @@ class SamplingAgent(scip.Branchrule):
         # once in a while, also run the expert policy and record the (state, action) pair
         if self.samplingStrategy == 'uniform_5':
             query_expert = (self.rng.random() < self.query_expert_prob)
-        elif self.samplingStrategy == 'depthK':
+        elif (self.samplingStrategy == 'depthK') or (self.samplingStrategy == 'depthK2'):
             query_expert = (self.rng.random() < self.query_expert_prob) or (self.sampleForTraining and (depth < self.depthK) and (self.model.getNNodes() <= self.NNodeK))
         else:
-            raise ValueError("Argument samplingStrategy can only be chosen from ['uniform_5', 'depthK']")
+            raise ValueError("Argument samplingStrategy can only be chosen from ['uniform_5', 'depthK', 'depthK2']")
 
         if query_expert:
             state = utilities.extract_state(self.model)
@@ -125,7 +134,7 @@ class SamplingAgent(scip.Branchrule):
         return {"result": result}
 
 
-def make_samples(in_queue, out_queue, samplingStrategy, trueOutDir, forTraining=True):
+def make_samples(in_queue, out_queue, samplingStrategy, trueOutDir, problem, forTraining=True):
     """
     Worker loop: fetch an instance, run an episode and record samples.
 
@@ -157,6 +166,7 @@ def make_samples(in_queue, out_queue, samplingStrategy, trueOutDir, forTraining=
             query_expert_prob=query_expert_prob,
             out_dir=out_dir,
             trueOutDir=trueOutDir,
+            problem=problem,
             samplingStrategy=samplingStrategy,
             sampleForTraining=forTraining)
 
@@ -224,7 +234,7 @@ def send_orders(orders_queue, instances, seed, exploration_policy, query_expert_
 
 
 def collect_samples(instances, out_dir, rng, n_samples, n_jobs,
-                    exploration_policy, query_expert_prob, time_limit, samplingStrategy, forTraining=True):
+                    exploration_policy, query_expert_prob, time_limit, samplingStrategy, problem, forTraining=True):
     """
     Runs branch-and-bound episodes on the given set of instances, and collects
     randomly (state, action) pairs from the 'vanilla-fullstrong' expert
@@ -250,9 +260,12 @@ def collect_samples(instances, out_dir, rng, n_samples, n_jobs,
     time_limit : float in [0, 1e+20]
         Maximum running time for an episode, in seconds.
     """
+
+    startTime = time.time()
+
     os.makedirs(out_dir, exist_ok=True)
 
-    samplingStatsSummary_file = 'SolStats.csv'
+    samplingStatsSummary_file = 'AllEpsSolStats.csv'
     df = pd.DataFrame()
     df['episode'] = []
     df['instance'] = []
@@ -267,7 +280,7 @@ def collect_samples(instances, out_dir, rng, n_samples, n_jobs,
     for i in range(n_jobs):
         p = mp.Process(
                 target=make_samples,
-                args=(orders_queue, answers_queue, samplingStrategy, out_dir, forTraining),
+                args=(orders_queue, answers_queue, samplingStrategy, out_dir, problem, forTraining),
                 daemon=True)
         workers.append(p)
         p.start()
@@ -337,6 +350,10 @@ def collect_samples(instances, out_dir, rng, n_samples, n_jobs,
 
     shutil.rmtree(tmp_samples_dir, ignore_errors=True)
 
+    end = time.time()
+    with open(f'{out_dir}/elapseTime={end - start}.txt', 'w') as fp:
+        pass
+
 
 def exp_main(args):
     samplingStrategy = args.sampling
@@ -398,19 +415,19 @@ def exp_main(args):
     collect_samples(instances_train, out_dir + '/train', rng, train_size,
                     args.njobs, exploration_policy=exploration_strategy,
                     query_expert_prob=node_record_prob,
-                    time_limit=time_limit, samplingStrategy=samplingStrategy, forTraining=True)
+                    time_limit=time_limit, samplingStrategy=samplingStrategy, problem=args.problem, forTraining=True)
 
     rng = np.random.default_rng(args.seed + 1)
     collect_samples(instances_valid, out_dir + '/valid', rng, test_size,
                     args.njobs, exploration_policy=exploration_strategy,
                     query_expert_prob=node_record_prob,
-                    time_limit=time_limit, samplingStrategy=samplingStrategy, forTraining=False)
+                    time_limit=time_limit, samplingStrategy=samplingStrategy, problem=args.problem, forTraining=False)
 
     rng = np.random.default_rng(args.seed + 2)
     collect_samples(instances_test, out_dir + '/test', rng, test_size,
                     args.njobs, exploration_policy=exploration_strategy,
                     query_expert_prob=node_record_prob,
-                    time_limit=time_limit, samplingStrategy=samplingStrategy, forTraining=False)
+                    time_limit=time_limit, samplingStrategy=samplingStrategy, problem=args.problem, forTraining=False)
 
 
 if __name__ == '__main__':
@@ -435,7 +452,7 @@ if __name__ == '__main__':
     parser.add_argument(
         '--sampling',
         help='Sampling Strategy',
-        choices=['uniform_5', 'depthK', 'pztest'],
+        choices=['uniform_5', 'depthK', 'depthK2'],
         default='uniform_5'
     )
     parser.add_argument(
@@ -445,4 +462,9 @@ if __name__ == '__main__':
     )
     args = parser.parse_args()
     
+    start = time.time()
+
     exp_main(args)
+
+    end = time.time()
+    print(end - start)
