@@ -20,7 +20,7 @@
             "program": "S01_generate_instances.py",
             "console": "integratedTerminal",
             "args": [
-                "setcover", // choices=['setcover', 'cauctions', 'facilities', 'indset']
+                "facilities", // choices=['setcover', 'cauctions', 'facilities', 'indset']
                 "--n_instances", "(100, 20, 10, 20)"
             ],
         },

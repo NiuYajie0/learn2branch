@@ -127,6 +127,21 @@ def process(model, dataloader, top_k, optimizer=None):
 
 def exp_main(args):
     seeds = eval(args.seeds)
+    
+    ### NUMPY / TENSORFLOW SETUP ###
+    ## TODO 下面这个没用了，要用tf.config.set_visible_devices来控制是否使用CPU
+    ## 见 https://www.tensorflow.org/api_docs/python/tf/config/set_visible_devices
+    if args.gpu == -1:
+        tf.config.set_visible_devices(tf.config.list_physical_devices('CPU')[0])
+    else:
+        cpu_devices = tf.config.list_physical_devices('CPU') 
+        gpu_devices = tf.config.list_physical_devices('GPU') 
+        tf.config.set_visible_devices([cpu_devices[0], gpu_devices[args.gpu]])
+        tf.config.experimental.set_memory_growth(gpu_devices[args.gpu], True)
+
+    # 可能还需要设定最大虚拟GPU大小，用 tf.config.experimental.set_virtual_device_configuration
+    # 见 https://www.tensorflow.org/guide/gpu#limiting_gpu_memory_growth 
+
 
     for seed in seeds:
 
@@ -174,21 +189,6 @@ def exp_main(args):
         log(f"problem: {args.problem}", logfile)
         log(f"gpu: {args.gpu}", logfile)
         log(f"seed {seed}", logfile)
-        
-
-        ### NUMPY / TENSORFLOW SETUP ###
-        ## TODO 下面这个没用了，要用tf.config.set_visible_devices来控制是否使用CPU
-        ## 见 https://www.tensorflow.org/api_docs/python/tf/config/set_visible_devices
-        if args.gpu == -1:
-            tf.config.set_visible_devices(tf.config.list_physical_devices('CPU')[0])
-        else:
-            cpu_devices = tf.config.list_physical_devices('CPU') 
-            gpu_devices = tf.config.list_physical_devices('GPU') 
-            tf.config.set_visible_devices([cpu_devices[0], gpu_devices[args.gpu]])
-            tf.config.experimental.set_memory_growth(gpu_devices[args.gpu], True)
-
-        # 可能还需要设定最大虚拟GPU大小，用 tf.config.experimental.set_virtual_device_configuration
-        # 见 https://www.tensorflow.org/guide/gpu#limiting_gpu_memory_growth 
 
 
         tf.config.run_functions_eagerly(True)
