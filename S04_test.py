@@ -112,7 +112,7 @@ def process(policy, dataloader, top_k):
 
     return mean_kacc
 
-def exp_main(exp):
+def exp_main(args):
     print(f"problem: {args.problem}")
     print(f"gpu: {args.gpu}")
     print(f"sampling: {args.sampling}")
@@ -128,17 +128,17 @@ def exp_main(exp):
     top_k = [1, 3, 5, 10]
 
     problem_folders = {
-        'setcover': f'setcover/500r_1000c_0.05d({args.sampling})',
-        'cauctions': f'cauctions/100_500({args.sampling})',
-        'facilities': f'facilities/100_100_5({args.sampling})', # TODO problem folder
-        'indset': f'indset/500_4({args.sampling})',
+        'setcover': f'setcover/500r_1000c_0.05d({args.sampling})/{args.sample_seed}',
+        'cauctions': f'cauctions/100_500({args.sampling})/{args.sample_seed}',
+        'facilities': f'facilities/100_100_5({args.sampling})/{args.sample_seed}', # TODO problem folder
+        'indset': f'indset/500_4({args.sampling})/{args.sample_seed}',
     }
     problem_folder = problem_folders[args.problem]
 
     # if args.problem == 'setcover':
     #     gcnn_models += ['mean_convolution', 'no_prenorm']
 
-    result_file = f"results/{args.problem}_{args.sampling}_test_{time.strftime('%Y%m%d-%H%M%S')}"
+    result_file = f"results/{args.problem}/{args.problem}_{args.sampling}_ss{args.sample_seed}_test_{time.strftime('%Y%m%d-%H%M%S')}"
 
     result_file = result_file + '.csv'
     # os.makedirs('results', exist_ok=True)
@@ -188,7 +188,7 @@ def exp_main(exp):
                     policy['model'] = model.GCNPolicy()
                     # TODO
                     # policy['model'].restore_state(f"trained_models/{args.problem}/{policy['name']}/{seed}/best_params.pkl")
-                    policy['model'].restore_state(f"trained_models/{args.problem}/{args.sampling}/{seed}/best_params.pkl")
+                    policy['model'].restore_state(f"trained_models/{args.problem}/{args.sampling}/ss{args.sample_seed}/ts{seed}/best_params.pkl")
                     # policy['model'].call = tfe.defun(policy['model'].call, input_signature=policy['model'].input_signature)
                     policy['batch_datatypes'] = [tf.float32, tf.int32, tf.float32,
                             tf.float32, tf.int32, tf.int32, tf.int32, tf.int32, tf.int32, tf.float32]
@@ -252,14 +252,20 @@ if __name__ == '__main__':
     parser.add_argument(
         '--sampling',
         help='Sampling Strategy',
-        choices=['uniform_5', 'depthK'],
-        default='uniform_5'
+        choices=['uniform5', 'depthK', 'depthK2'],
+        default='uniform5'
     )
     parser.add_argument(
         '-s', '--seeds',
         help='Random generator seeds as a python list or range representation.',
         # type=utilities.valid_seed,
         default="range(0,5)",
+    )
+    parser.add_argument(
+        '--sample_seed',
+        help='seed of the sampled data',
+        choices=['uniform5', 'depthK', 'depthK2'],
+        default='uniform5'
     )
     args = parser.parse_args()
 

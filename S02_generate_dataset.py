@@ -14,7 +14,7 @@ import time
 
 class SamplingAgent(scip.Branchrule):
 
-    def __init__(self, episode, instance, seed, out_queue, exploration_policy, query_expert_prob, out_dir, trueOutDir, problem, follow_expert=True, samplingStrategy='uniform_5', sampleForTraining=True):
+    def __init__(self, episode, instance, seed, out_queue, exploration_policy, query_expert_prob, out_dir, trueOutDir, problem, follow_expert=True, samplingStrategy='uniform5', sampleForTraining=True):
         self.episode = episode
         self.instance = instance
         self.seed = seed
@@ -70,12 +70,12 @@ class SamplingAgent(scip.Branchrule):
             self.visited_maxDepth = depth
 
         # once in a while, also run the expert policy and record the (state, action) pair
-        if self.samplingStrategy == 'uniform_5':
+        if self.samplingStrategy == 'uniform5':
             query_expert = (self.rng.random() < self.query_expert_prob)
         elif (self.samplingStrategy == 'depthK') or (self.samplingStrategy == 'depthK2'):
             query_expert = (self.rng.random() < self.query_expert_prob) or (self.sampleForTraining and (depth < self.depthK) and (self.model.getNNodes() <= self.NNodeK))
         else:
-            raise ValueError("Argument samplingStrategy can only be chosen from ['uniform_5', 'depthK', 'depthK2']")
+            raise ValueError("Argument samplingStrategy can only be chosen from ['uniform5', 'depthK', 'depthK2']")
 
         if query_expert:
             state = utilities.extract_state(self.model)
@@ -350,8 +350,8 @@ def collect_samples(instances, out_dir, rng, n_samples, n_jobs,
 
     shutil.rmtree(tmp_samples_dir, ignore_errors=True)
 
-    end = time.time()
-    with open(f'{out_dir}/elapseTime={end - start}.txt', 'w') as fp:
+    endTime = time.time()
+    with open(f'{out_dir}/elapseTime={endTime - startTime}.txt', 'w') as fp:
         pass
 
 
@@ -373,25 +373,25 @@ def exp_main(args):
         instances_train = glob.glob('data/instances/setcover/train_500r_1000c_0.05d/*.lp')
         instances_valid = glob.glob('data/instances/setcover/valid_500r_1000c_0.05d/*.lp')
         instances_test = glob.glob('data/instances/setcover/test_500r_1000c_0.05d/*.lp')
-        out_dir = f'data/samples/setcover/500r_1000c_0.05d({samplingStrategy})'
+        out_dir = f'data/samples/setcover/500r_1000c_0.05d({samplingStrategy})/{args.seed}'
 
     elif args.problem == 'cauctions':
         instances_train = glob.glob('data/instances/cauctions/train_100_500/*.lp')
         instances_valid = glob.glob('data/instances/cauctions/valid_100_500/*.lp')
         instances_test = glob.glob('data/instances/cauctions/test_100_500/*.lp')
-        out_dir = f'data/samples/cauctions/100_500({samplingStrategy})'
+        out_dir = f'data/samples/cauctions/100_500({samplingStrategy})/{args.seed}'
 
     elif args.problem == 'indset':
         instances_train = glob.glob('data/instances/indset/train_500_4/*.lp')
         instances_valid = glob.glob('data/instances/indset/valid_500_4/*.lp')
         instances_test = glob.glob('data/instances/indset/test_500_4/*.lp')
-        out_dir = f'data/samples/indset/500_4({samplingStrategy})'
+        out_dir = f'data/samples/indset/500_4({samplingStrategy})/{args.seed}'
 
     elif args.problem == 'facilities':
         instances_train = glob.glob('data/instances/facilities/train_100_100_5/*.lp')
         instances_valid = glob.glob('data/instances/facilities/valid_100_100_5/*.lp')
         instances_test = glob.glob('data/instances/facilities/test_100_100_5/*.lp')
-        out_dir = f'data/samples/facilities/100_100_5({samplingStrategy})'
+        out_dir = f'data/samples/facilities/100_100_5({samplingStrategy})/{args.seed}'
         time_limit = 600
 
     # elif args.problem == 'chargePark_env':
@@ -452,8 +452,8 @@ if __name__ == '__main__':
     parser.add_argument(
         '--sampling',
         help='Sampling Strategy',
-        choices=['uniform_5', 'depthK', 'depthK2'],
-        default='uniform_5'
+        choices=['uniform5', 'depthK', 'depthK2'],
+        default='uniform5'
     )
     parser.add_argument(
         '-n', '--n_samples',

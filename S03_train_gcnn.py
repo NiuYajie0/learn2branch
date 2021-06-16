@@ -161,15 +161,15 @@ def exp_main(args):
         
 
         problem_folders = {
-            'setcover': f'setcover/500r_1000c_0.05d({sampling_strategy})',
-            'cauctions': f'cauctions/100_500({sampling_strategy})',
-            'facilities': f'facilities/100_100_5({sampling_strategy})', # TODO
-            'indset': f'indset/500_4({sampling_strategy})',
+            'setcover': f'setcover/500r_1000c_0.05d({sampling_strategy})/{args.sample_seed}',
+            'cauctions': f'cauctions/100_500({sampling_strategy})/{args.sample_seed}',
+            'facilities': f'facilities/100_100_5({sampling_strategy})/{args.sample_seed}', # TODO
+            'indset': f'indset/500_4({sampling_strategy})/{args.sample_seed}',
         }
         problem_folder = problem_folders[args.problem]
 
         # running_dir = f"trained_models/{args.problem}/{args.model}/{args.seed}"
-        running_dir = f"trained_models/{args.problem}/{sampling_strategy}/{seed}" # TODO
+        running_dir = f"trained_models/{args.problem}/{sampling_strategy}/ss{args.sample_seed}/ts{seed}" # TODO
 
         os.makedirs(running_dir)
 
@@ -329,8 +329,14 @@ if __name__ == '__main__':
     parser.add_argument(
         '--sampling',
         help='Sampling Strategy',
-        choices=['uniform_5', 'depthK'],
-        default='uniform_5'
+        choices=['uniform5', 'depthK', 'depthK2'],
+        default='uniform5'
+    )
+    parser.add_argument(
+        '--sample_seed',
+        help='seed of the sampled data',
+        choices=['uniform5', 'depthK', 'depthK2'],
+        default='uniform5'
     )
     args = parser.parse_args()
 

@@ -20,8 +20,8 @@ if __name__ == '__main__':
     parser.add_argument(
         '--samplingStrategies',
         help='List of sampling strategies by python representation',
-        choices=['uniform_5', 'depthK'],
-        default="['uniform_5', 'depthK']"
+        choices=['uniform5', 'depthK'],
+        default="['uniform5', 'depthK']"
     )
 
     args = parser.parse_args()
