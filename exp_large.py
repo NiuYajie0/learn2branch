@@ -9,11 +9,11 @@ S01_args.n_instances = "(1000, 200, 100, 200)" # python expression as string, to
 S01_generate_instances.exp_main(S01_args)
 
 
-# strategies = ["uniform_5", "depthK"]
+# strategies = ["uniform5", "depthK"]
 # for samplingStrategy in strategies:
 
 #%%
-samplingStrategy = "uniform_5" # choices: uniform_5, depthK
+samplingStrategy = "uniform5" # choices: uniform5, depthK
 
 S02_args = {}
 S02_args.problem = problem

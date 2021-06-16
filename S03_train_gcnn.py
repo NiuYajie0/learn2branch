@@ -329,14 +329,14 @@ if __name__ == '__main__':
     parser.add_argument(
         '--sampling',
         help='Sampling Strategy',
-        choices=['uniform_5', 'depthK', 'depthK2'],
-        default='uniform_5'
+        choices=['uniform5', 'depthK', 'depthK2'],
+        default='uniform5'
     )
     parser.add_argument(
         '--sample_seed',
         help='seed of the sampled data',
-        choices=['uniform_5', 'depthK', 'depthK2'],
-        default='uniform_5'
+        choices=['uniform5', 'depthK', 'depthK2'],
+        default='uniform5'
     )
     args = parser.parse_args()
 

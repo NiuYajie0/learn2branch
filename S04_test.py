@@ -112,7 +112,7 @@ def process(policy, dataloader, top_k):
 
     return mean_kacc
 
-def exp_main(exp):
+def exp_main(args):
     print(f"problem: {args.problem}")
     print(f"gpu: {args.gpu}")
     print(f"sampling: {args.sampling}")
@@ -138,7 +138,7 @@ def exp_main(exp):
     # if args.problem == 'setcover':
     #     gcnn_models += ['mean_convolution', 'no_prenorm']
 
-    result_file = f"results/{args.problem}_{args.sampling}_ss{args.sample_seed}_test_{time.strftime('%Y%m%d-%H%M%S')}"
+    result_file = f"results/{args.problem}/{args.problem}_{args.sampling}_ss{args.sample_seed}_test_{time.strftime('%Y%m%d-%H%M%S')}"
 
     result_file = result_file + '.csv'
     # os.makedirs('results', exist_ok=True)
@@ -252,8 +252,8 @@ if __name__ == '__main__':
     parser.add_argument(
         '--sampling',
         help='Sampling Strategy',
-        choices=['uniform_5', 'depthK', 'depthK2'],
-        default='uniform_5'
+        choices=['uniform5', 'depthK', 'depthK2'],
+        default='uniform5'
     )
     parser.add_argument(
         '-s', '--seeds',
@@ -264,8 +264,8 @@ if __name__ == '__main__':
     parser.add_argument(
         '--sample_seed',
         help='seed of the sampled data',
-        choices=['uniform_5', 'depthK', 'depthK2'],
-        default='uniform_5'
+        choices=['uniform5', 'depthK', 'depthK2'],
+        default='uniform5'
     )
     args = parser.parse_args()
 
