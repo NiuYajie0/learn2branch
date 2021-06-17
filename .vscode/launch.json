@@ -32,7 +32,7 @@
             "console": "integratedTerminal",
             "args": [
                 "facilities", // choices=['setcover', 'cauctions', 'facilities', 'indset']
-                "--sampling", "depthK", // choices: uniform_5, depthK, depthK2
+                "--sampling", "depthK", // choices: uniform5, depthK, depthK2
                 "--n_samples", "(1000, 200, 200)",
                 "--njobs", "9",
                 "-s 1",
@@ -57,7 +57,7 @@
             "console": "integratedTerminal",
             "args": [
                 "setcover", // choices=['setcover', 'cauctions', 'facilities', 'indset']
-                "--sampling", "depthK2", // choices: uniform_5, depthK, depthK2
+                "--sampling", "depthK2", // choices: uniform5, depthK, depthK2
                 "--sample_seed", "1",
                 "--seeds", "range(0,10)",
             ],
@@ -70,10 +70,20 @@
             "console": "integratedTerminal",
             "args": [
                 "setcover", // choices=['setcover', 'cauctions', 'facilities', 'indset']
-                "--sampling", "depthK2",  // choices: uniform_5, depthK, depthK2
+                "--sampling", "depthK2",  // choices: uniform5, depthK, depthK2
                 "--sample_seed", "1",
                 "--seeds", "range(0,10)",
                 // "-g -1"
+            ],
+        },
+        {
+            "name": "Exp.py",
+            "type": "python",
+            "request": "launch",
+            "program": "exp.py",
+            "console": "integratedTerminal",
+            "args": [
+                
             ],
         },
     ]
