@@ -166,6 +166,7 @@ def exp_main(args):
     ] + [
         f'acc@{k}' for k in top_k
     ]
+    os.makedirs(f'results/{args.problem}', exist_ok=True)
     with open(result_file, 'w', newline='') as csvfile:
         writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
         writer.writeheader()
