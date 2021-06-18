@@ -11,10 +11,13 @@ import pyscipopt as scip
 import utilities
 import pandas as pd
 import time
+import threading
+
+depthTable = pd.DataFrame()
 
 class SamplingAgent(scip.Branchrule):
 
-    def __init__(self, episode, instance, seed, out_queue, exploration_policy, query_expert_prob, out_dir, trueOutDir, problem, follow_expert=True, samplingStrategy='uniform5', sampleForTraining=True):
+    def __init__(self, episode, instance, seed, out_queue, exploration_policy, query_expert_prob, out_dir, trueOutDir, problem, lock, follow_expert=True, samplingStrategy='uniform5', sampleForTraining=True):
         self.episode = episode
         self.instance = instance
         self.seed = seed
@@ -24,25 +27,21 @@ class SamplingAgent(scip.Branchrule):
         self.out_dir = out_dir
         self.follow_expert = follow_expert
         self.visited_maxDepth = 0
+        self.problem = problem
 
         self.rng = np.random.default_rng(seed)
         self.new_node = True
         self.sample_counter = 0
         self.depthK = 10
-        if samplingStrategy=='depthK':
-            self.NNodeK = 20
-        else:
-            depthK2dict = {
-                'setcover' : 43, 
-                'cauctions' : 38, 
-                'facilities' : 20, 
-                'indset' : 10
-            }
-            self.NNodeK = depthK2dict[problem]
+        self.NNodeK = 20
+
         self.samplingStrategy = samplingStrategy
         self.sampleForTraining = sampleForTraining
         self.trueOutDir = trueOutDir
         self.SolStatsSummary_file = 'AllEpsSolStats.csv'
+
+        self.lock = lock
+        # self.depthTable = depthTable
 
     def branchinit(self):
         self.khalil_root_buffer = {}
@@ -59,6 +58,8 @@ class SamplingAgent(scip.Branchrule):
 
     def branchexeclp(self, allowaddcons):
 
+        global depthTable
+
         if self.model.getNNodes() == 1:
             # initialize root buffer for Khalil features extraction
             utilities.extract_khalil_variable_features(self.model, [], self.khalil_root_buffer)
@@ -70,14 +71,36 @@ class SamplingAgent(scip.Branchrule):
             self.visited_maxDepth = depth
 
         # once in a while, also run the expert policy and record the (state, action) pair
-        if self.samplingStrategy == 'uniform5':
+        if self.samplingStrategy == 'uniform5' or not self.sampleForTraining: # validation 和 test set 都用 uniform5
             query_expert = (self.rng.random() < self.query_expert_prob)
-        elif (self.samplingStrategy == 'depthK') or (self.samplingStrategy == 'depthK2'):
-            query_expert = (self.rng.random() < self.query_expert_prob) or (self.sampleForTraining and (depth < self.depthK) and (self.model.getNNodes() <= self.NNodeK))
+        elif self.samplingStrategy == 'depthK':
+            query_expert = (self.rng.random() < self.query_expert_prob) or ((depth < self.depthK) and (self.model.getNNodes() <= self.NNodeK))
+        elif self.samplingStrategy == 'depthK2':
+            
+            # 要通过读取depthTable来计算采样概率
+            self.lock.acquire()
+            if depth not in depthTable.index:
+                query_expert = True
+                self.lock.release()
+            else:
+                scores = depthTable['sampleTimes'].sum() / depthTable['sampleTimes']
+                self.lock.release()
+
+                query_expert_prob = scores[depth] / scores.sum()
+                query_expert = (self.rng.random() < query_expert_prob)
         else:
             raise ValueError("Argument samplingStrategy can only be chosen from ['uniform5', 'depthK', 'depthK2']")
 
         if query_expert:
+            # global lck, depthTable
+            if self.sampleForTraining:
+                self.lock.acquire() # 要进行sample了，所以要修改depthTable
+                if depth not in depthTable.index:
+                    depthTable.loc[depth,'sampleTimes'] = 1
+                else:
+                    depthTable.loc[depth,'sampleTimes'] += 1
+                self.lock.release()
+
             state = utilities.extract_state(self.model)
             cands, *_ = self.model.getPseudoBranchCands()
             state_khalil = utilities.extract_khalil_variable_features(self.model, cands, self.khalil_root_buffer)
@@ -134,7 +157,7 @@ class SamplingAgent(scip.Branchrule):
         return {"result": result}
 
 
-def make_samples(in_queue, out_queue, samplingStrategy, trueOutDir, problem, forTraining=True):
+def make_samples(in_queue, out_queue, samplingStrategy, trueOutDir, problem, forTraining, lock):
     """
     Worker loop: fetch an instance, run an episode and record samples.
 
@@ -168,7 +191,9 @@ def make_samples(in_queue, out_queue, samplingStrategy, trueOutDir, problem, for
             trueOutDir=trueOutDir,
             problem=problem,
             samplingStrategy=samplingStrategy,
-            sampleForTraining=forTraining)
+            sampleForTraining=forTraining,
+            lock = lock,
+            )
 
         m.includeBranchrule(
             branchrule=branchrule,
@@ -234,7 +259,7 @@ def send_orders(orders_queue, instances, seed, exploration_policy, query_expert_
 
 
 def collect_samples(instances, out_dir, rng, n_samples, n_jobs,
-                    exploration_policy, query_expert_prob, time_limit, samplingStrategy, problem, forTraining=True):
+                    exploration_policy, query_expert_prob, time_limit, samplingStrategy, problem, lock, forTraining=True):
     """
     Runs branch-and-bound episodes on the given set of instances, and collects
     randomly (state, action) pairs from the 'vanilla-fullstrong' expert
@@ -280,7 +305,7 @@ def collect_samples(instances, out_dir, rng, n_samples, n_jobs,
     for i in range(n_jobs):
         p = mp.Process(
                 target=make_samples,
-                args=(orders_queue, answers_queue, samplingStrategy, out_dir, problem, forTraining),
+                args=(orders_queue, answers_queue, samplingStrategy, out_dir, problem, forTraining, lock),
                 daemon=True)
         workers.append(p)
         p.start()
@@ -411,23 +436,28 @@ def exp_main(args):
     # create output directory, throws an error if it already exists
     os.makedirs(out_dir)
 
+    global depthTable
+    lck = mp.Lock()
+    
+
     rng = np.random.default_rng(args.seed)
     collect_samples(instances_train, out_dir + '/train', rng, train_size,
                     args.njobs, exploration_policy=exploration_strategy,
                     query_expert_prob=node_record_prob,
-                    time_limit=time_limit, samplingStrategy=samplingStrategy, problem=args.problem, forTraining=True)
+                    time_limit=time_limit, samplingStrategy=samplingStrategy, problem=args.problem, forTraining=True, lock=lck)
+    depthTable.to_csv('depthTable(train).csv')
 
     rng = np.random.default_rng(args.seed + 1)
     collect_samples(instances_valid, out_dir + '/valid', rng, test_size,
                     args.njobs, exploration_policy=exploration_strategy,
                     query_expert_prob=node_record_prob,
-                    time_limit=time_limit, samplingStrategy=samplingStrategy, problem=args.problem, forTraining=False)
+                    time_limit=time_limit, samplingStrategy=samplingStrategy, problem=args.problem, forTraining=False,lock=lck)
 
     rng = np.random.default_rng(args.seed + 2)
     collect_samples(instances_test, out_dir + '/test', rng, test_size,
                     args.njobs, exploration_policy=exploration_strategy,
                     query_expert_prob=node_record_prob,
-                    time_limit=time_limit, samplingStrategy=samplingStrategy, problem=args.problem, forTraining=False)
+                    time_limit=time_limit, samplingStrategy=samplingStrategy, problem=args.problem, forTraining=False,lock=lck)
 
 
 if __name__ == '__main__':
