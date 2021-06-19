@@ -9,7 +9,7 @@ if __name__ == '__main__':
     # %%
 
     problem = "indset"
-    samplingStrategy = "depthK" # choices: uniform5, depthK
+    samplingStrategy = "depthK2" # choices: uniform5, depthK
     sample_seed = 1
     train_seeds = "range(0,10)"
     gpu = 0 # CUDA GPU id (-1 for CPU).

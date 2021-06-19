@@ -10,7 +10,7 @@ if __name__ == '__main__':
 
     problem = "setcover"
     samplingStrategy = "depthK2" # choices: uniform5, depthK, depthK2
-    sampling_seed = 1
+    sampling_seed = 0
     train_seeds = "range(0,10)"
     gpu = 0 # CUDA GPU id (-1 for CPU).
 
@@ -34,6 +34,7 @@ if __name__ == '__main__':
         'seed' : sampling_seed,
         'njobs' : 9,
         'n_samples' : "(1000, 200, 200)" # Number of generated n_samples as (train_size, valid_size, test_size).
+        #             "(1000, 200, 200)"
     }
     S02_args = SimpleNamespace(**S02_args)
     S02_generate_dataset.exp_main(S02_args)
