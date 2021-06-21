@@ -8,10 +8,10 @@ if __name__ == '__main__':
 
     # %%
 
-    problem = "setcover"
-    samplingStrategy = "depthK2" # choices: uniform5, depthK, depthK2
+    problem = "setcover" # choices=['setcover', 'cauctions', 'facilities', 'indset']
+    samplingStrategy = "depthK3" # choices: uniform5, depthK, depthK2, depthK3
     sampling_seed = 0
-    train_seeds = "range(0,10)"
+    train_seeds = "range(0,20)"
     gpu = 0 # CUDA GPU id (-1 for CPU).
 
     # %%

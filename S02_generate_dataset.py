@@ -81,7 +81,6 @@ class SamplingAgent(scip.Branchrule):
             elif self.samplingStrategy == 'depthK':
                 query_expert = (self.rng.random() < self.query_expert_prob) or ((depth < self.depthK) and (self.model.getNNodes() <= self.NNodeK))
             elif self.samplingStrategy == 'depthK2':
-                
                 # 要通过读取depthTable来计算采样概率
                 with self.lock:
                     if depth not in self.depthDict_sampleTimes:
@@ -91,8 +90,19 @@ class SamplingAgent(scip.Branchrule):
                         scores = {k:valSum/v for k,v in self.depthDict_sampleTimes.items()}
                         query_expert_prob = scores[depth] / sum(scores.values())
                         query_expert = (self.rng.random() < query_expert_prob)
+            elif self.samplingStrategy == 'depthK3':
+                # 给采样概率增加上下界
+                with self.lock:
+                    if depth not in self.depthDict_sampleTimes:
+                        query_expert_prob = 0.5
+                    else:
+                        valSum = sum(self.depthDict_sampleTimes.values())
+                        scores = {k:valSum/v for k,v in self.depthDict_sampleTimes.items()}
+                        query_expert_prob = scores[depth] / sum(scores.values())
+                        query_expert_prob = min(max(0.05, query_expert_prob), 0.5)
+                    query_expert = (self.rng.random() < query_expert_prob)
             else:
-                raise ValueError("Argument samplingStrategy can only be chosen from ['uniform5', 'depthK', 'depthK2']")
+                raise ValueError("Argument samplingStrategy can only be chosen from ['uniform5', 'depthK', 'depthK2', 'depthK3']")
 
         if query_expert:
             # global lck, depthTable
