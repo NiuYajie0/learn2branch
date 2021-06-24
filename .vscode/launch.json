@@ -32,9 +32,9 @@
             "console": "integratedTerminal",
             "args": [
                 "facilities", // choices=['setcover', 'cauctions', 'facilities', 'indset']
-                "--sampling", "depthK", // choices: uniform5, depthK, depthK2
+                "--sampling", "depthK2", // choices: uniform5, depthK, depthK2
                 "--n_samples", "(1000, 200, 200)",
-                "--njobs", "9",
+                "--njobs", "5",
                 "-s 1",
             ],
         },
@@ -84,6 +84,16 @@
             "console": "integratedTerminal",
             "args": [
                 
+            ],
+        },
+        {
+            "name": "05 - Evaluate",
+            "type": "python",
+            "request": "launch",
+            "program": "S05_evaluate.py",
+            "console": "integratedTerminal",
+            "args": [
+                "facilities",
             ],
         },
     ]

@@ -335,8 +335,8 @@ if __name__ == '__main__':
     parser.add_argument(
         '--sample_seed',
         help='seed of the sampled data',
-        choices=['uniform5', 'depthK', 'depthK2'],
-        default='uniform5'
+        type=utilities.valid_seed,
+        default=0
     )
     args = parser.parse_args()
 
