@@ -128,6 +128,7 @@ def exp_main(args):
     result_file = f"{args.problem}_{time.strftime('%Y%m%d-%H%M%S')}.csv"
     instances = []
     seeds = [0, 1, 2, 3, 4]
+    # seeds = range(5,20)
     gcnn_models = ['baseline']
     # other_models = ['extratrees_gcnn_agg', 'lambdamart_khalil', 'svmrank_khalil'] # TODO
     other_models = []
