@@ -10,9 +10,8 @@ import pickle
 import pyscipopt as scip
 
 import tensorflow as tf
-import tensorflow.contrib.eager as tfe
 
-import svmrank
+# import svmrank
 
 import utilities
 
@@ -28,7 +27,9 @@ class PolicyBranching(scip.Branchrule):
         if self.policy_type == 'gcnn':
             model = policy['model']
             model.restore_state(policy['parameters'])
-            self.policy = tfe.defun(model.call, input_signature=model.input_signature)
+            # self.policy = tfe.defun(model.call, input_signature=model.input_signature)
+            # self.policy = tf.function(model.call, input_signature=model.input_signature)
+            self.policy = model.call
 
         elif self.policy_type == 'internal':
             self.policy = policy['name']
@@ -127,9 +128,12 @@ def exp_main(args):
     result_file = f"{args.problem}_{time.strftime('%Y%m%d-%H%M%S')}.csv"
     instances = []
     seeds = [0, 1, 2, 3, 4]
+    # seeds = range(5,20)
     gcnn_models = ['baseline']
-    other_models = ['extratrees_gcnn_agg', 'lambdamart_khalil', 'svmrank_khalil']
-    internal_branchers = ['relpscost']
+    # other_models = ['extratrees_gcnn_agg', 'lambdamart_khalil', 'svmrank_khalil'] # TODO
+    other_models = []
+    # internal_branchers = ['relpscost']
+    internal_branchers = []
     time_limit = 3600
 
     if args.problem == 'setcover':
@@ -176,39 +180,36 @@ def exp_main(args):
                 'model': f'trained_models/{args.problem}/{model}/{seed}',
             })
     # GCNN models
-    for model in gcnn_models:
-        for seed in seeds:
-            branching_policies.append({
-                'type': 'gcnn',
-                'name': model,
-                'seed': seed,
-                'parameters': f'trained_models/{args.problem}/{model}/{seed}/best_params.pkl'
-            })
+    for sampling_Strategy in args.sampling_strategies:
+        for model in gcnn_models:
+            for seed in seeds:
+                branching_policies.append({
+                    'type': 'gcnn',
+                    'name': model,
+                    'seed': seed,
+                    'sampling_strategy': sampling_Strategy,
+                    'parameters': f'trained_models/{args.problem}/{sampling_Strategy}/ss{args.sample_seed}/ts{seed}/best_params.pkl'
+                })
 
     print(f"problem: {args.problem}")
     print(f"gpu: {args.gpu}")
     print(f"time limit: {time_limit} s")
 
-    ### TENSORFLOW SETUP ###
     if args.gpu == -1:
-        os.environ['CUDA_VISIBLE_DEVICES'] = ''
+        tf.config.set_visible_devices(tf.config.list_physical_devices('CPU')[0])
     else:
-        os.environ['CUDA_VISIBLE_DEVICES'] = f'{args.gpu}'
-    config = tf.ConfigProto()
-    config.gpu_options.allow_growth = True
-    tf.enable_eager_execution(config)
-    tf.executing_eagerly()
+        cpu_devices = tf.config.list_physical_devices('CPU') 
+        gpu_devices = tf.config.list_physical_devices('GPU') 
+        tf.config.set_visible_devices([cpu_devices[0], gpu_devices[args.gpu]])
+        tf.config.experimental.set_memory_growth(gpu_devices[args.gpu], True)
 
     # load and assign tensorflow models to policies (share models and update parameters)
     loaded_models = {}
     for policy in branching_policies:
         if policy['type'] == 'gcnn':
             if policy['name'] not in loaded_models:
-                sys.path.insert(0, os.path.abspath(f"models/{policy['name']}"))
-                import model
-                importlib.reload(model)
-                loaded_models[policy['name']] = model.GCNPolicy()
-                del sys.path[0]
+                model_module = importlib.import_module(f'models.{model}.model')
+                loaded_models[policy['name']] = model_module.GCNPolicy()
             policy['model'] = loaded_models[policy['name']]
 
     # load ml-competitor models
@@ -233,6 +234,7 @@ def exp_main(args):
 
     fieldnames = [
         'policy',
+        'sampling_strategy',
         'seed',
         'type',
         'instance',
@@ -255,7 +257,7 @@ def exp_main(args):
             print(f"{instance['type']}: {instance['path']}...")
 
             for policy in branching_policies:
-                tf.set_random_seed(policy['seed'])
+                tf.random.set_seed(policy['seed'])
 
                 m = scip.Model()
                 m.setIntParam('display/verblevel', 0)
@@ -289,6 +291,7 @@ def exp_main(args):
 
                 writer.writerow({
                     'policy': f"{policy['type']}:{policy['name']}",
+                    'sampling_strategy':policy['sampling_strategy'],
                     'seed': policy['seed'],
                     'type': instance['type'],
                     'instance': instance['path'],
@@ -306,7 +309,7 @@ def exp_main(args):
                 csvfile.flush()
                 m.freeProb()
 
-                print(f"  {policy['type']}:{policy['name']} {policy['seed']} - {nnodes} ({nnodes+2*(ndomchgs+ncutoffs)}) nodes {nlps} lps {stime:.2f} ({walltime:.2f} wall {proctime:.2f} proc) s. {status}")
+                print(f"  {policy['type']}:{policy['name']}:{policy['sampling_strategy']} {policy['seed']} - {nnodes} ({nnodes+2*(ndomchgs+ncutoffs)}) nodes {nlps} lps {stime:.2f} ({walltime:.2f} wall {proctime:.2f} proc) s. {status}")
 
 
 if __name__ == '__main__':
@@ -321,6 +324,18 @@ if __name__ == '__main__':
         help='CUDA GPU id (-1 for CPU).',
         type=int,
         default=0,
+    )
+    parser.add_argument(
+        '--sampling_strategies',
+        help='Sampling Strategies',
+        # choices=['uniform5', 'depthK', 'depthK2'],
+        default=['uniform5', 'depthK', 'depthK2']
+    )
+    parser.add_argument(
+        '--sample_seed',
+        help='seed of the sampled data',
+        type=utilities.valid_seed,
+        default=0
     )
     args = parser.parse_args()
 
