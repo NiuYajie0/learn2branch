@@ -6,6 +6,7 @@ import csv
 import numpy as np
 import time
 import pickle
+from numpy.core.numeric import NaN
 
 import pyscipopt as scip
 
@@ -129,7 +130,8 @@ def exp_main(args):
     instances = []
     seeds = [0, 1, 2, 3, 4]
     # seeds = range(5,20)
-    gcnn_models = ['baseline']
+    # gcnn_models = ['baseline']
+    gcnn_models = []
     # other_models = ['extratrees_gcnn_agg', 'lambdamart_khalil', 'svmrank_khalil'] # TODO
     other_models = []
     internal_branchers = ['relpscost']
@@ -150,7 +152,7 @@ def exp_main(args):
     elif args.problem == 'facilities':
         instances += [{'type': 'small', 'path': f"data/instances/facilities/transfer_100_100_5/instance_{i+1}.lp"} for i in range(20)]
         instances += [{'type': 'medium', 'path': f"data/instances/facilities/transfer_200_100_5/instance_{i+1}.lp"} for i in range(20)]
-        instances += [{'type': 'big', 'path': f"data/instances/facilities/transfer_400_100_5/instance_{i+1}.lp"} for i in range(20)]
+        # instances += [{'type': 'big', 'path': f"data/instances/facilities/transfer_400_100_5/instance_{i+1}.lp"} for i in range(20)]
 
     elif args.problem == 'indset':
         instances += [{'type': 'small', 'path': f"data/instances/indset/transfer_500_4/instance_{i+1}.lp"} for i in range(20)]
@@ -169,6 +171,7 @@ def exp_main(args):
                     'type': 'internal',
                     'name': brancher,
                     'seed': seed,
+                    'sampling_strategy': NaN,
              })
     # ML baselines
     for model in other_models:
