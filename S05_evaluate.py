@@ -132,15 +132,15 @@ def exp_main(args):
     gcnn_models = ['baseline']
     # other_models = ['extratrees_gcnn_agg', 'lambdamart_khalil', 'svmrank_khalil'] # TODO
     other_models = []
-    # internal_branchers = ['relpscost']
-    internal_branchers = []
+    internal_branchers = ['relpscost']
+    # internal_branchers = []
     time_limit = 3600
 
     if args.problem == 'setcover':
         instances += [{'type': 'small', 'path': f"data/instances/setcover/transfer_500r_1000c_0.05d/instance_{i+1}.lp"} for i in range(20)]
         instances += [{'type': 'medium', 'path': f"data/instances/setcover/transfer_1000r_1000c_0.05d/instance_{i+1}.lp"} for i in range(20)]
         instances += [{'type': 'big', 'path': f"data/instances/setcover/transfer_2000r_1000c_0.05d/instance_{i+1}.lp"} for i in range(20)]
-        gcnn_models += ['mean_convolution', 'no_prenorm']
+        # gcnn_models += ['mean_convolution', 'no_prenorm']
 
     elif args.problem == 'cauctions':
         instances += [{'type': 'small', 'path': f"data/instances/cauctions/transfer_100_500/instance_{i+1}.lp"} for i in range(20)]
