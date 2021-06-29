@@ -130,8 +130,8 @@ def exp_main(args):
     instances = []
     seeds = [0, 1, 2, 3, 4]
     # seeds = range(5,20)
-    # gcnn_models = ['baseline']
-    gcnn_models = []
+    gcnn_models = ['baseline']
+    # gcnn_models = []
     # other_models = ['extratrees_gcnn_agg', 'lambdamart_khalil', 'svmrank_khalil'] # TODO
     other_models = []
     internal_branchers = ['relpscost']
@@ -141,13 +141,13 @@ def exp_main(args):
     if args.problem == 'setcover':
         instances += [{'type': 'small', 'path': f"data/instances/setcover/transfer_500r_1000c_0.05d/instance_{i+1}.lp"} for i in range(20)]
         instances += [{'type': 'medium', 'path': f"data/instances/setcover/transfer_1000r_1000c_0.05d/instance_{i+1}.lp"} for i in range(20)]
-        instances += [{'type': 'big', 'path': f"data/instances/setcover/transfer_2000r_1000c_0.05d/instance_{i+1}.lp"} for i in range(20)]
+        # instances += [{'type': 'big', 'path': f"data/instances/setcover/transfer_2000r_1000c_0.05d/instance_{i+1}.lp"} for i in range(20)]
         # gcnn_models += ['mean_convolution', 'no_prenorm']
 
     elif args.problem == 'cauctions':
         instances += [{'type': 'small', 'path': f"data/instances/cauctions/transfer_100_500/instance_{i+1}.lp"} for i in range(20)]
         instances += [{'type': 'medium', 'path': f"data/instances/cauctions/transfer_200_1000/instance_{i+1}.lp"} for i in range(20)]
-        instances += [{'type': 'big', 'path': f"data/instances/cauctions/transfer_300_1500/instance_{i+1}.lp"} for i in range(20)]
+        # instances += [{'type': 'big', 'path': f"data/instances/cauctions/transfer_300_1500/instance_{i+1}.lp"} for i in range(20)]
 
     elif args.problem == 'facilities':
         instances += [{'type': 'small', 'path': f"data/instances/facilities/transfer_100_100_5/instance_{i+1}.lp"} for i in range(20)]
@@ -157,7 +157,7 @@ def exp_main(args):
     elif args.problem == 'indset':
         instances += [{'type': 'small', 'path': f"data/instances/indset/transfer_500_4/instance_{i+1}.lp"} for i in range(20)]
         instances += [{'type': 'medium', 'path': f"data/instances/indset/transfer_1000_4/instance_{i+1}.lp"} for i in range(20)]
-        instances += [{'type': 'big', 'path': f"data/instances/indset/transfer_1500_4/instance_{i+1}.lp"} for i in range(20)]
+        # instances += [{'type': 'big', 'path': f"data/instances/indset/transfer_1500_4/instance_{i+1}.lp"} for i in range(20)]
 
     else:
         raise NotImplementedError
