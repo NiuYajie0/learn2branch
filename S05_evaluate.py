@@ -134,8 +134,8 @@ def exp_main(args):
     # gcnn_models = []
     # other_models = ['extratrees_gcnn_agg', 'lambdamart_khalil', 'svmrank_khalil'] # TODO
     other_models = []
-    internal_branchers = ['relpscost']
-    # internal_branchers = []
+    # internal_branchers = ['relpscost']
+    internal_branchers = []
     time_limit = 3600
 
     if args.problem == 'setcover':
