@@ -8,13 +8,13 @@ if __name__ == '__main__':
 
     # %%
 
-    problem = "indset" # choices=['setcover', 'cauctions', 'facilities', 'indset']
+    problem = "cauctions" # choices=['setcover', 'cauctions', 'facilities', 'indset']
     # samplingStrategy = "depthK2" 
     
     train_seeds = "range(0,20)"
     gpu = 0 # CUDA GPU id (-1 for CPU).
 
-    # #%%
+    #%%
     # S01_args = {
     #     'problem' : problem,
     #     'n_instances' : "(100, 20, 20, 20)",
@@ -24,11 +24,11 @@ if __name__ == '__main__':
     # S01_generate_instances.exp_main(S01_args)
 
 
-    samplingStrategies = ["uniform5", "depthK", "depthK2"] # # choices: uniform5, depthK, depthK2, depthK3
+    samplingStrategies = ["depthK", "depthK2"] # # choices: uniform5, depthK, depthK2, depthK3
     sampling_seed = 0
     for samplingStrategy in samplingStrategies:
 
-    # # %%
+    # %%
         S02_args = {
             'problem' : problem,
             'sampling' : samplingStrategy,
