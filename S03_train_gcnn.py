@@ -146,11 +146,11 @@ def exp_main(args):
     for seed in seeds:
 
         ### HYPER PARAMETERS ###
-        max_epochs = 300
-        epoch_size = 20
-        batch_size = 8 # 我的电脑设为16就内存溢出 -- 因此目前这个方法更适合规模小一些的问题 # TODO 用他们后面的那种改进
-        pretrain_batch_size = 16
-        valid_batch_size = 16
+        max_epochs = 1000
+        epoch_size = 312
+        batch_size = 32 # 我的电脑设为16就内存溢出 -- 因此目前这个方法更适合规模小一些的问题 # TODO 用他们后面的那种改进
+        pretrain_batch_size = 128
+        valid_batch_size = 128
         lr = 0.001
         patience = 10
         early_stopping = 20

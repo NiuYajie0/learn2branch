@@ -15,16 +15,16 @@ if __name__ == '__main__':
     gpu = 0 # CUDA GPU id (-1 for CPU).
 
     #%%
-    # S01_args = {
-    #     'problem' : problem,
-    #     'n_instances' : "(100, 20, 20, 20)",
-    #     'seed' : 0,
-    # }
-    # S01_args = SimpleNamespace(**S01_args)
-    # S01_generate_instances.exp_main(S01_args)
+    S01_args = {
+        'problem' : problem,
+        'n_instances' : "(10000, 2000, 100, 2000)",
+        'seed' : 0,
+    }
+    S01_args = SimpleNamespace(**S01_args)
+    S01_generate_instances.exp_main(S01_args)
 
 
-    samplingStrategies = ["depthK", "depthK2"] # # choices: uniform5, depthK, depthK2, depthK3
+    samplingStrategies = ["uniform5", "depthK", "depthK2"] # # choices: uniform5, depthK, depthK2, depthK3
     sampling_seed = 0
     for samplingStrategy in samplingStrategies:
 
@@ -34,7 +34,7 @@ if __name__ == '__main__':
             'sampling' : samplingStrategy,
             'seed' : sampling_seed,
             'njobs' : 9,
-            'n_samples' : "(1000, 200, 200)" # Number of generated n_samples as (train_size, valid_size, test_size).
+            'n_samples' : "(100000, 20000, 20000)" # Number of generated n_samples as (train_size, valid_size, test_size).
             #             "(1000, 200, 200)"
         }
         S02_args = SimpleNamespace(**S02_args)
