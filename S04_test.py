@@ -130,19 +130,20 @@ def exp_main(args):
     # if args.problem == 'setcover':
     #     gcnn_models += ['mean_convolution', 'no_prenorm']
 
-    # problem_folders = {
-    #     'setcover': f'setcover/500r_1000c_0.05d({args.sampling})/{args.sample_seed}',
-    #     'cauctions': f'cauctions/100_500({args.sampling})/{args.sample_seed}',
-    #     'facilities': f'facilities/100_100_5({args.sampling})/{args.sample_seed}',
-    #     'indset': f'indset/500_4({args.sampling})/{args.sample_seed}',
-    # }
-    # problem_folder = problem_folders[args.problem]
-    # test_files = list(pathlib.Path(f"data/samples/{problem_folder}/test").glob('sample_*.pkl'))
-
-    test_files = list(pathlib.Path(f"data/samples/{args.problem}/test").glob('sample_*.pkl'))
+    problem_folders = {
+        'setcover': f'setcover/500r_1000c_0.05d({args.sampling})/{args.sample_seed}',
+        'cauctions': f'cauctions/100_500({args.sampling})/{args.sample_seed}',
+        'facilities': f'facilities/100_100_5({args.sampling})/{args.sample_seed}',
+        'indset': f'indset/500_4({args.sampling})/{args.sample_seed}',
+    }
+    problem_folder = problem_folders[args.problem]
+    test_files = list(pathlib.Path(f"data/samples/{problem_folder}/test").glob('sample_*.pkl'))
+    # test_files = list(pathlib.Path(f"data/samples/{args.problem}/test").glob('sample_*.pkl'))
     test_files = [str(x) for x in test_files]
 
-    result_file = f"results/{args.problem}/{args.problem}_{args.sampling}_ss{args.sample_seed}_test_{time.strftime('%Y%m%d-%H%M%S')}.csv"
+    resultDir = f'results/{args.problem}/test_branchingAccSB'
+    os.makedirs(resultDir, exist_ok=True)
+    result_file = f"{resultDir}/{args.problem}_{args.sampling}_ss{args.sample_seed}_test_{time.strftime('%Y%m%d-%H%M%S')}.csv"
 
     trained_model_path = f"trained_models/{args.problem}/{args.sampling}/ss{args.sample_seed}"
 
@@ -170,7 +171,7 @@ def exp_main(args):
     ] + [
         f'acc@{k}' for k in top_k
     ]
-    os.makedirs(f'results/{args.problem}', exist_ok=True)
+    
     with open(result_file, 'w', newline='') as csvfile:
         writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
         writer.writeheader()
