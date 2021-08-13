@@ -43,8 +43,8 @@ class SamplingAgent(scip.Branchrule):
         self.depthDict_accessTimes = depthDict_accessTimes
         self.depthDict_sampleTimes = depthDict_sampleTimes
         # self.depthTable = depthTable
-
-        self.depthTable_SolSB_binned5 = pd.read_csv(f'data/samples/{problem}/depthTable_SolSB_binned5.csv', index_col='depth//5')
+        if self.samplingStrategy == 'depthK_adaptive':
+            self.depthTable_SolSB_binned5 = pd.read_csv(f'data/samples/{problem}/depthTable_SolSB_binned5.csv', index_col='depth//5')
 
     def branchinit(self):
         self.khalil_root_buffer = {}

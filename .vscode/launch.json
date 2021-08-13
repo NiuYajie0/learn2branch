@@ -93,7 +93,7 @@
             "program": "S05_evaluate.py",
             "console": "integratedTerminal",
             "args": [
-                "setcover",
+                "cauctions",
             ],
         },
     ]
