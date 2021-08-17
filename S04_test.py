@@ -130,115 +130,120 @@ def exp_main(args):
     # if args.problem == 'setcover':
     #     gcnn_models += ['mean_convolution', 'no_prenorm']
 
-    # problem_folders = {
-    #     'setcover': f'setcover/500r_1000c_0.05d({args.sampling})/{args.sample_seed}',
-    #     'cauctions': f'cauctions/100_500({args.sampling})/{args.sample_seed}',
-    #     'facilities': f'facilities/100_100_5({args.sampling})/{args.sample_seed}',
-    #     'indset': f'indset/500_4({args.sampling})/{args.sample_seed}',
-    # }
-    # problem_folder = problem_folders[args.problem]
-    # test_files = list(pathlib.Path(f"data/samples/{problem_folder}/test").glob('sample_*.pkl'))
+    testFiles_sampling = ['uniform5', 'depthK', 'depthK2']
+    for testFile_sampling in testFiles_sampling:
+        
+        problem_folders = {
+            'setcover': f'setcover/500r_1000c_0.05d({testFile_sampling})/{args.sample_seed}',
+            'cauctions': f'cauctions/100_500({testFile_sampling})/{args.sample_seed}',
+            'facilities': f'facilities/100_100_5({testFile_sampling})/{args.sample_seed}',
+            'indset': f'indset/500_4({testFile_sampling})/{args.sample_seed}',
+        }
+        problem_folder = problem_folders[args.problem]
 
-    test_files = list(pathlib.Path(f"data/samples/{args.problem}/test").glob('sample_*.pkl'))
-    test_files = [str(x) for x in test_files]
+        test_files = list(pathlib.Path(f"data/samples/{problem_folder}/test").glob('sample_*.pkl'))
+        # test_files = list(pathlib.Path(f"data/samples/{args.problem}/test").glob('sample_*.pkl'))
+        test_files = [str(x) for x in test_files]
 
-    result_file = f"results/{args.problem}/{args.problem}_{args.sampling}_ss{args.sample_seed}_test_{time.strftime('%Y%m%d-%H%M%S')}.csv"
+        resultDir = f'results/{args.problem}/test_branchingAccSB'
+        os.makedirs(resultDir, exist_ok=True)
+        result_file = f"{resultDir}/{args.problem}_{args.sampling}_on_{testFile_sampling}_ss{args.sample_seed}_test_{time.strftime('%Y%m%d-%H%M%S')}.csv"
 
-    trained_model_path = f"trained_models/{args.problem}/{args.sampling}/ss{args.sample_seed}"
+        trained_model_path = f"trained_models/{args.problem}/{args.sampling}/ss{args.sample_seed}"
 
-    # os.makedirs('results', exist_ok=True)
+        # os.makedirs('results', exist_ok=True)
 
-    ### TENSORFLOW SETUP ### 
-    if args.gpu == -1:
-        tf.config.set_visible_devices(tf.config.list_physical_devices('CPU')[0])
-    else:
-        cpu_devices = tf.config.list_physical_devices('CPU') 
-        gpu_devices = tf.config.list_physical_devices('GPU') 
-        tf.config.set_visible_devices([cpu_devices[0], gpu_devices[args.gpu]])
-        tf.config.experimental.set_memory_growth(gpu_devices[args.gpu], True)
+        ### TENSORFLOW SETUP ### 
+        if args.gpu == -1:
+            tf.config.set_visible_devices(tf.config.list_physical_devices('CPU')[0])
+        else:
+            cpu_devices = tf.config.list_physical_devices('CPU') 
+            gpu_devices = tf.config.list_physical_devices('GPU') 
+            tf.config.set_visible_devices([cpu_devices[0], gpu_devices[args.gpu]])
+            tf.config.experimental.set_memory_growth(gpu_devices[args.gpu], True)
 
-    
+        
 
-    print(f"{len(test_files)} test samples")
+        print(f"{len(test_files)} test samples")
 
-    evaluated_policies = [['gcnn', model] for model in gcnn_models] + \
-            [['ml-competitor', model] for model in other_models]
+        evaluated_policies = [['gcnn', model] for model in gcnn_models] + \
+                [['ml-competitor', model] for model in other_models]
 
-    fieldnames = [
-        'policy',
-        'seed',
-    ] + [
-        f'acc@{k}' for k in top_k
-    ]
-    os.makedirs(f'results/{args.problem}', exist_ok=True)
-    with open(result_file, 'w', newline='') as csvfile:
-        writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
-        writer.writeheader()
-        for policy_type, policy_name in evaluated_policies:
-            print(f"{policy_type}:{policy_name}...")
-            for train_seed in seeds:
-                rng = np.random.default_rng(train_seed)
-                tf.random.set_seed(rng.integers(np.iinfo(int).max))
+        fieldnames = [
+            'policy',
+            'seed',
+        ] + [
+            f'acc@{k}' for k in top_k
+        ]
+        
+        with open(result_file, 'w', newline='') as csvfile:
+            writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+            writer.writeheader()
+            for policy_type, policy_name in evaluated_policies:
+                print(f"{policy_type}:{policy_name}...")
+                for train_seed in seeds:
+                    rng = np.random.default_rng(train_seed)
+                    tf.random.set_seed(rng.integers(np.iinfo(int).max))
 
-                policy = {}
-                policy['name'] = policy_name
-                policy['type'] = policy_type
+                    policy = {}
+                    policy['name'] = policy_name
+                    policy['type'] = policy_type
 
-                if policy['type'] == 'gcnn':
-                    # load model
-                    # sys.path.insert(0, os.path.abspath(f"models/{policy['name']}"))
-                    model = importlib.import_module(f"models.{policy['name']}.model")
-                    policy['model'] = model.GCNPolicy()
-                    
-                    policy['model'] = model.GCNPolicy()
-                    # TODO
-                    # policy['model'].restore_state(f"trained_models/{args.problem}/{policy['name']}/{seed}/best_params.pkl")
-                    policy['model'].restore_state(f"{trained_model_path}/ts{train_seed}/best_params.pkl")
-                    # policy['model'].call = tfe.defun(policy['model'].call, input_signature=policy['model'].input_signature)
-                    policy['batch_datatypes'] = [tf.float32, tf.int32, tf.float32,
-                            tf.float32, tf.int32, tf.int32, tf.int32, tf.int32, tf.int32, tf.float32]
-                    policy['batch_fun'] = load_batch_gcnn
-                else:
-                    # load feature normalization parameters
-                    try:
-                        with open(f"trained_models/{args.problem}/{policy['name']}/{train_seed}/normalization.pkl", 'rb') as f:
-                            policy['feat_shift'], policy['feat_scale'] = pickle.load(f)
-                    except:
-                            policy['feat_shift'], policy['feat_scale'] = 0, 1
-
-                    # load model
-                    if policy_name.startswith('svmrank'):
-                        policy['model'] = svmrank.Model().read(f"trained_models/{args.problem}/{policy['name']}/{train_seed}/model.txt")
+                    if policy['type'] == 'gcnn':
+                        # load model
+                        # sys.path.insert(0, os.path.abspath(f"models/{policy['name']}"))
+                        model = importlib.import_module(f"models.{policy['name']}.model")
+                        policy['model'] = model.GCNPolicy()
+                        
+                        policy['model'] = model.GCNPolicy()
+                        # TODO
+                        # policy['model'].restore_state(f"trained_models/{args.problem}/{policy['name']}/{seed}/best_params.pkl")
+                        policy['model'].restore_state(f"{trained_model_path}/ts{train_seed}/best_params.pkl")
+                        # policy['model'].call = tfe.defun(policy['model'].call, input_signature=policy['model'].input_signature)
+                        policy['batch_datatypes'] = [tf.float32, tf.int32, tf.float32,
+                                tf.float32, tf.int32, tf.int32, tf.int32, tf.int32, tf.int32, tf.float32]
+                        policy['batch_fun'] = load_batch_gcnn
                     else:
-                        with open(f"trained_models/{args.problem}/{policy['name']}/{train_seed}/model.pkl", 'rb') as f:
-                            policy['model'] = pickle.load(f)
+                        # load feature normalization parameters
+                        try:
+                            with open(f"trained_models/{args.problem}/{policy['name']}/{train_seed}/normalization.pkl", 'rb') as f:
+                                policy['feat_shift'], policy['feat_scale'] = pickle.load(f)
+                        except:
+                                policy['feat_shift'], policy['feat_scale'] = 0, 1
 
-                    # load feature specifications
-                    with open(f"trained_models/{args.problem}/{policy['name']}/{train_seed}/feat_specs.pkl", 'rb') as f:
-                        feat_specs = pickle.load(f)
+                        # load model
+                        if policy_name.startswith('svmrank'):
+                            policy['model'] = svmrank.Model().read(f"trained_models/{args.problem}/{policy['name']}/{train_seed}/model.txt")
+                        else:
+                            with open(f"trained_models/{args.problem}/{policy['name']}/{train_seed}/model.pkl", 'rb') as f:
+                                policy['model'] = pickle.load(f)
 
-                    policy['batch_datatypes'] = [tf.float32, tf.int32, tf.int32, tf.float32]
-                    policy['batch_fun'] = lambda x: load_batch_flat(x, feat_specs['type'], feat_specs['augment'], feat_specs['qbnorm'])
+                        # load feature specifications
+                        with open(f"trained_models/{args.problem}/{policy['name']}/{train_seed}/feat_specs.pkl", 'rb') as f:
+                            feat_specs = pickle.load(f)
 
-                test_data = tf.data.Dataset.from_tensor_slices(test_files)
-                test_data = test_data.batch(test_batch_size)
-                test_data = test_data.map(lambda x: tf.py_function(
-                    policy['batch_fun'], [x], policy['batch_datatypes']))
-                test_data = test_data.prefetch(2)
+                        policy['batch_datatypes'] = [tf.float32, tf.int32, tf.int32, tf.float32]
+                        policy['batch_fun'] = lambda x: load_batch_flat(x, feat_specs['type'], feat_specs['augment'], feat_specs['qbnorm'])
 
-                test_kacc = process(policy, test_data, top_k)
-                print(f"  {train_seed} " + " ".join([f"acc@{k}: {100*acc:4.1f}" for k, acc in zip(top_k, test_kacc)]))
+                    test_data = tf.data.Dataset.from_tensor_slices(test_files)
+                    test_data = test_data.batch(test_batch_size)
+                    test_data = test_data.map(lambda x: tf.py_function(
+                        policy['batch_fun'], [x], policy['batch_datatypes']))
+                    test_data = test_data.prefetch(2)
 
-                writer.writerow({
-                    **{
-                        'policy': f"{policy['type']}:{policy['name']}",
-                        'seed': train_seed,
-                    },
-                    **{
-                        f'acc@{k}': test_kacc[i] for i, k in enumerate(top_k)
-                    },
-                })
-                csvfile.flush()
+                    test_kacc = process(policy, test_data, top_k)
+                    print(f"  {train_seed} " + " ".join([f"acc@{k}: {100*acc:4.1f}" for k, acc in zip(top_k, test_kacc)]))
+
+                    writer.writerow({
+                        **{
+                            'policy': f"{policy['type']}:{policy['name']}",
+                            'seed': train_seed,
+                        },
+                        **{
+                            f'acc@{k}': test_kacc[i] for i, k in enumerate(top_k)
+                        },
+                    })
+                    csvfile.flush()
 
 
 if __name__ == '__main__':

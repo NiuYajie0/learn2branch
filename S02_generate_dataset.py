@@ -13,6 +13,7 @@ import utilities
 import pandas as pd
 import time
 
+
 class SamplingAgent(scip.Branchrule):
 
     def __init__(self, episode, instance, seed, out_queue, exploration_policy, query_expert_prob, out_dir, trueOutDir, problem, lock, depthDict_accessTimes, depthDict_sampleTimes, follow_expert=True, samplingStrategy='uniform5', sampleForTraining=True):
@@ -42,6 +43,8 @@ class SamplingAgent(scip.Branchrule):
         self.depthDict_accessTimes = depthDict_accessTimes
         self.depthDict_sampleTimes = depthDict_sampleTimes
         # self.depthTable = depthTable
+        if self.samplingStrategy == 'depthK_adaptive':
+            self.depthTable_SolSB_binned5 = pd.read_csv(f'data/samples/{problem}/depthTable_SolSB_binned5.csv', index_col='depth//5')
 
     def branchinit(self):
         self.khalil_root_buffer = {}
@@ -67,42 +70,55 @@ class SamplingAgent(scip.Branchrule):
             self.visited_maxDepth = depth
 
         # once in a while, also run the expert policy and record the (state, action) pair
-        if not self.sampleForTraining: # if generating valid set or test set
-            query_expert = (self.rng.random() < self.query_expert_prob)
-        else:
-            with self.lock:
-                if depth not in self.depthDict_accessTimes:
-                    self.depthDict_accessTimes[depth] = 1
-                else:
-                    self.depthDict_accessTimes[depth] += 1
-
-            if self.samplingStrategy == 'uniform5': # validation 和 test set 都用 uniform5
-                query_expert = (self.rng.random() < self.query_expert_prob)
-            elif self.samplingStrategy == 'depthK':
-                query_expert = (self.rng.random() < self.query_expert_prob) or ((depth < self.depthK) and (self.model.getNNodes() <= self.NNodeK))
-            elif self.samplingStrategy == 'depthK2':
-                # 要通过读取depthTable来计算采样概率
-                with self.lock:
-                    if depth not in self.depthDict_sampleTimes:
-                        query_expert = True
-                    else:
-                        valSum = sum(self.depthDict_sampleTimes.values())
-                        scores = {k:valSum/v for k,v in self.depthDict_sampleTimes.items()}
-                        query_expert_prob = scores[depth] / sum(scores.values())
-                        query_expert = (self.rng.random() < query_expert_prob)
-            elif self.samplingStrategy == 'depthK3':
-                # 给采样概率增加上下界
-                with self.lock:
-                    if depth not in self.depthDict_sampleTimes:
-                        query_expert_prob = 0.5
-                    else:
-                        valSum = sum(self.depthDict_sampleTimes.values())
-                        scores = {k:valSum/v for k,v in self.depthDict_sampleTimes.items()}
-                        query_expert_prob = scores[depth] / sum(scores.values())
-                        query_expert_prob = min(max(0.05, query_expert_prob), 0.5)
-                    query_expert = (self.rng.random() < query_expert_prob)
+        # if not self.sampleForTraining: # if generating valid set or test set
+        #     query_expert = (self.rng.random() < self.query_expert_prob)
+        # else:
+        with self.lock:
+            if depth not in self.depthDict_accessTimes:
+                self.depthDict_accessTimes[depth] = 1
             else:
-                raise ValueError("Argument samplingStrategy can only be chosen from ['uniform5', 'depthK', 'depthK2', 'depthK3']")
+                self.depthDict_accessTimes[depth] += 1
+
+        if self.samplingStrategy == 'uniform5': # validation 和 test set 都用 uniform5
+            query_expert = (self.rng.random() < self.query_expert_prob)
+        elif self.samplingStrategy == 'depthK':
+            query_expert = (self.rng.random() < self.query_expert_prob) or ((depth < self.depthK) and (self.model.getNNodes() <= self.NNodeK))
+        elif self.samplingStrategy == 'depthK2':
+            # 要通过读取depthTable来计算采样概率
+            with self.lock:
+                if depth not in self.depthDict_sampleTimes.keys():
+                    query_expert = True
+                else:
+                    valSum = sum(self.depthDict_sampleTimes.values())
+                    scores = {k:valSum/v for k,v in self.depthDict_sampleTimes.items()}
+                    query_expert_prob = scores[depth] / sum(scores.values())
+                    query_expert = (self.rng.random() < query_expert_prob)
+        elif self.samplingStrategy == 'depthK3':
+            # 给采样概率增加上下界
+            with self.lock:
+                if depth not in self.depthDict_sampleTimes:
+                    query_expert_prob = 0.5
+                else:
+                    valSum = sum(self.depthDict_sampleTimes.values())
+                    scores = {k:valSum/v for k,v in self.depthDict_sampleTimes.items()}
+                    query_expert_prob = scores[depth] / sum(scores.values())
+                    query_expert_prob = min(max(0.05, query_expert_prob), 0.5)
+                query_expert = (self.rng.random() < query_expert_prob)
+        elif self.samplingStrategy == 'depthK_adaptive':            
+            bin_size = 5
+            depth_binned = depth // bin_size
+
+            query_expert_prob = self.query_expert_prob
+            if (depth_binned in self.depthTable_SolSB_binned5.index) and (self.depthTable_SolSB_binned5.loc[depth_binned].item() > self.query_expert_prob):
+                query_expert_prob = self.depthTable_SolSB_binned5.loc[depth_binned].item()
+            query_expert = (self.rng.random() < query_expert_prob)
+        elif self.samplingStrategy == 'depthK_adaptive2': 
+            query_expert_prob = self.query_expert_prob
+            if depth >= 5 and depth < 20:
+                query_expert_prob = 0.13
+            query_expert = (self.rng.random() < query_expert_prob)
+        else:
+            raise ValueError("Argument samplingStrategy can only be chosen from ['uniform5', 'depthK', 'depthK2', 'depthK3', 'depthK_adaptive]")
 
         if query_expert:
             # global lck, depthTable
@@ -447,16 +463,16 @@ def exp_main(args):
     print(f"{len(instances_valid)} validation instances for {valid_size} samples")
     print(f"{len(instances_test)} test instances for {test_size} samples")
 
-    # create output directory, throws an error if it already exists
-    os.makedirs(out_dir)
-
-    
     lck = mp.Lock()
     
     depthDict_accessTimes = mp.Manager().dict()
     depthDict_sampleTimes = mp.Manager().dict()
     # ns._depthTable = pd.DataFrame(columns=['accessTimes', 'sampleTimes'])
 
+    
+
+    # create output directory, throws an error if it already exists
+    os.makedirs(out_dir)
     rng = np.random.default_rng(args.seed)
     collect_samples(instances_train, out_dir + '/train', rng, train_size,
                     args.njobs, exploration_policy=exploration_strategy,
@@ -475,13 +491,13 @@ def exp_main(args):
     # TODO 1. 不管什么采样方式，测试集都应该是同一个测试集，所以应该检查有没有一个（公用的）测试集，如果有的话就不生成测试集了；
     # TODO 2. 到时在 S04_test.py 那里再修改一下，不管什么sampling strategy，都应该用那个公用的测试数据集
 
-    sharedTestSet_path = f'data/samples/{args.problem}/test'
-    if not os.path.exists(sharedTestSet_path):
-        rng = np.random.default_rng(args.seed + 2)
-        collect_samples(instances_test, sharedTestSet_path, rng, test_size,
-                        args.njobs, exploration_policy=exploration_strategy,
-                        query_expert_prob=node_record_prob,
-                        time_limit=time_limit, samplingStrategy=samplingStrategy, problem=args.problem, forTraining=False, lock=lck, depthDict_accessTimes=depthDict_accessTimes,depthDict_sampleTimes=depthDict_sampleTimes)
+    # sharedTestSet_path = f'data/samples/{args.problem}/test'
+    # if not os.path.exists(sharedTestSet_path):
+    rng = np.random.default_rng(args.seed + 2)
+    collect_samples(instances_test, out_dir + '/test', rng, test_size,
+                    args.njobs, exploration_policy=exploration_strategy,
+                    query_expert_prob=node_record_prob,
+                    time_limit=time_limit, samplingStrategy=samplingStrategy, problem=args.problem, forTraining=False, lock=lck, depthDict_accessTimes=depthDict_accessTimes,depthDict_sampleTimes=depthDict_sampleTimes)
 
 
 if __name__ == '__main__':
@@ -506,7 +522,7 @@ if __name__ == '__main__':
     parser.add_argument(
         '--sampling',
         help='Sampling Strategy',
-        choices=['uniform5', 'depthK', 'depthK2'],
+        choices=['uniform5', 'depthK', 'depthK2', 'depthK3', 'depthK_adaptive'],
         default='uniform5'
     )
     parser.add_argument(
