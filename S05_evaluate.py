@@ -332,7 +332,7 @@ if __name__ == '__main__':
         '--sampling_strategies',
         help='Sampling Strategies',
         # choices=['uniform5', 'depthK', 'depthK2'],
-        default=['uniform5', 'depthK', 'depthK2']
+        default=['uniform5', 'depthK']
     )
     parser.add_argument(
         '--sample_seed',
