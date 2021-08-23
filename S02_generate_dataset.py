@@ -42,9 +42,9 @@ class SamplingAgent(scip.Branchrule):
         self.lock = lock
         self.depthDict_accessTimes = depthDict_accessTimes
         self.depthDict_sampleTimes = depthDict_sampleTimes
-        # self.depthTable = depthTable
-        if self.samplingStrategy == 'depthK_adaptive':
-            self.depthTable_SolSB_binned5 = pd.read_csv(f'data/samples/{problem}/depthTable_SolSB_binned5.csv', index_col='depth//5')
+        # # self.depthTable = depthTable
+        # if self.samplingStrategy == 'depthK_adaptive':
+        #     self.depthTable_SolSB_binned5 = pd.read_csv(f'data/{args.trainingSetSize}/samples/{problem}/depthTable_SolSB_binned5.csv', index_col='depth//5')
 
     def branchinit(self):
         self.khalil_root_buffer = {}
@@ -93,30 +93,30 @@ class SamplingAgent(scip.Branchrule):
                     scores = {k:valSum/v for k,v in self.depthDict_sampleTimes.items()}
                     query_expert_prob = scores[depth] / sum(scores.values())
                     query_expert = (self.rng.random() < query_expert_prob)
-        elif self.samplingStrategy == 'depthK3':
-            # 给采样概率增加上下界
-            with self.lock:
-                if depth not in self.depthDict_sampleTimes:
-                    query_expert_prob = 0.5
-                else:
-                    valSum = sum(self.depthDict_sampleTimes.values())
-                    scores = {k:valSum/v for k,v in self.depthDict_sampleTimes.items()}
-                    query_expert_prob = scores[depth] / sum(scores.values())
-                    query_expert_prob = min(max(0.05, query_expert_prob), 0.5)
-                query_expert = (self.rng.random() < query_expert_prob)
-        elif self.samplingStrategy == 'depthK_adaptive':            
-            bin_size = 5
-            depth_binned = depth // bin_size
+        # elif self.samplingStrategy == 'depthK3':
+        #     # 给采样概率增加上下界
+        #     with self.lock:
+        #         if depth not in self.depthDict_sampleTimes:
+        #             query_expert_prob = 0.5
+        #         else:
+        #             valSum = sum(self.depthDict_sampleTimes.values())
+        #             scores = {k:valSum/v for k,v in self.depthDict_sampleTimes.items()}
+        #             query_expert_prob = scores[depth] / sum(scores.values())
+        #             query_expert_prob = min(max(0.05, query_expert_prob), 0.5)
+        #         query_expert = (self.rng.random() < query_expert_prob)
+        # elif self.samplingStrategy == 'depthK_adaptive':            
+        #     bin_size = 5
+        #     depth_binned = depth // bin_size
 
-            query_expert_prob = self.query_expert_prob
-            if (depth_binned in self.depthTable_SolSB_binned5.index) and (self.depthTable_SolSB_binned5.loc[depth_binned].item() > self.query_expert_prob):
-                query_expert_prob = self.depthTable_SolSB_binned5.loc[depth_binned].item()
-            query_expert = (self.rng.random() < query_expert_prob)
-        elif self.samplingStrategy == 'depthK_adaptive2': 
-            query_expert_prob = self.query_expert_prob
-            if depth >= 5 and depth < 20:
-                query_expert_prob = 0.13
-            query_expert = (self.rng.random() < query_expert_prob)
+        #     query_expert_prob = self.query_expert_prob
+        #     if (depth_binned in self.depthTable_SolSB_binned5.index) and (self.depthTable_SolSB_binned5.loc[depth_binned].item() > self.query_expert_prob):
+        #         query_expert_prob = self.depthTable_SolSB_binned5.loc[depth_binned].item()
+        #     query_expert = (self.rng.random() < query_expert_prob)
+        # elif self.samplingStrategy == 'depthK_adaptive2': 
+        #     query_expert_prob = self.query_expert_prob
+        #     if depth >= 5 and depth < 20:
+        #         query_expert_prob = 0.13
+        #     query_expert = (self.rng.random() < query_expert_prob)
         else:
             raise ValueError("Argument samplingStrategy can only be chosen from ['uniform5', 'depthK', 'depthK2', 'depthK3', 'depthK_adaptive]")
 
@@ -425,35 +425,35 @@ def exp_main(args):
     time_limit = 3600
 
     if args.problem == 'setcover':
-        instances_train = glob.glob('data/instances/setcover/train_500r_1000c_0.05d/*.lp')
-        instances_valid = glob.glob('data/instances/setcover/valid_500r_1000c_0.05d/*.lp')
-        instances_test = glob.glob('data/instances/setcover/test_500r_1000c_0.05d/*.lp')
-        out_dir = f'data/samples/setcover/500r_1000c_0.05d({samplingStrategy})/{args.seed}'
+        instances_train = glob.glob(f'data/{args.trainingSetSize}/instances/setcover/train_500r_1000c_0.05d/*.lp')
+        instances_valid = glob.glob(f'data/{args.trainingSetSize}/instances/setcover/valid_500r_1000c_0.05d/*.lp')
+        instances_test = glob.glob(f'data/{args.trainingSetSize}/instances/setcover/test_500r_1000c_0.05d/*.lp')
+        out_dir = f'data/{args.trainingSetSize}/samples/setcover/500r_1000c_0.05d({samplingStrategy})/{args.seed}'
 
     elif args.problem == 'cauctions':
-        instances_train = glob.glob('data/instances/cauctions/train_100_500/*.lp')
-        instances_valid = glob.glob('data/instances/cauctions/valid_100_500/*.lp')
-        instances_test = glob.glob('data/instances/cauctions/test_100_500/*.lp')
-        out_dir = f'data/samples/cauctions/100_500({samplingStrategy})/{args.seed}'
+        instances_train = glob.glob(f'data/{args.trainingSetSize}/instances/cauctions/train_100_500/*.lp')
+        instances_valid = glob.glob(f'data/{args.trainingSetSize}/instances/cauctions/valid_100_500/*.lp')
+        instances_test = glob.glob(f'data/{args.trainingSetSize}/instances/cauctions/test_100_500/*.lp')
+        out_dir = f'data/{args.trainingSetSize}/samples/cauctions/100_500({samplingStrategy})/{args.seed}'
 
     elif args.problem == 'indset':
-        instances_train = glob.glob('data/instances/indset/train_500_4/*.lp')
-        instances_valid = glob.glob('data/instances/indset/valid_500_4/*.lp')
-        instances_test = glob.glob('data/instances/indset/test_500_4/*.lp')
-        out_dir = f'data/samples/indset/500_4({samplingStrategy})/{args.seed}'
+        instances_train = glob.glob(f'data/{args.trainingSetSize}/instances/indset/train_500_4/*.lp')
+        instances_valid = glob.glob(f'data/{args.trainingSetSize}/instances/indset/valid_500_4/*.lp')
+        instances_test = glob.glob(f'data/{args.trainingSetSize}/instances/indset/test_500_4/*.lp')
+        out_dir = f'data/{args.trainingSetSize}/samples/indset/500_4({samplingStrategy})/{args.seed}'
 
     elif args.problem == 'facilities':
-        instances_train = glob.glob('data/instances/facilities/train_100_100_5/*.lp')
-        instances_valid = glob.glob('data/instances/facilities/valid_100_100_5/*.lp')
-        instances_test = glob.glob('data/instances/facilities/test_100_100_5/*.lp')
-        out_dir = f'data/samples/facilities/100_100_5({samplingStrategy})/{args.seed}'
+        instances_train = glob.glob(f'data/{args.trainingSetSize}/instances/facilities/train_100_100_5/*.lp')
+        instances_valid = glob.glob(f'data/{args.trainingSetSize}/instances/facilities/valid_100_100_5/*.lp')
+        instances_test = glob.glob(f'data/{args.trainingSetSize}/instances/facilities/test_100_100_5/*.lp')
+        out_dir = f'data/{args.trainingSetSize}/samples/facilities/100_100_5({samplingStrategy})/{args.seed}'
         time_limit = 600
 
     # elif args.problem == 'chargePark_env':
     #     instances_train = glob.glob('D:\ResearchData\GitHub\learn2branch\data\exported_problems\*.lp')
-    #     instances_valid = glob.glob('data/instances/facilities/valid_100_100_5/*.lp')
-    #     instances_test = glob.glob('data/instances/facilities/test_100_100_5/*.lp')
-    #     out_dir = 'data/samples/facilities/100_100_5'
+    #     instances_valid = glob.glob('data/{args.trainingSetSize}/instances/facilities/valid_100_100_5/*.lp')
+    #     instances_test = glob.glob('data/{args.trainingSetSize}/instances/facilities/test_100_100_5/*.lp')
+    #     out_dir = 'data/{args.trainingSetSize}/samples/facilities/100_100_5'
     #     time_limit = 600
 
     else:
@@ -491,7 +491,7 @@ def exp_main(args):
     # TODO 1. 不管什么采样方式，测试集都应该是同一个测试集，所以应该检查有没有一个（公用的）测试集，如果有的话就不生成测试集了；
     # TODO 2. 到时在 S04_test.py 那里再修改一下，不管什么sampling strategy，都应该用那个公用的测试数据集
 
-    # sharedTestSet_path = f'data/samples/{args.problem}/test'
+    # sharedTestSet_path = f'data/{args.trainingSetSize}/samples/{args.problem}/test'
     # if not os.path.exists(sharedTestSet_path):
     rng = np.random.default_rng(args.seed + 2)
     collect_samples(instances_test, out_dir + '/test', rng, test_size,
@@ -529,6 +529,12 @@ if __name__ == '__main__':
         '-n', '--n_samples',
         help='Number of generated n_samples as (train_size, valid_size, test_size).',
         default="(1000, 200, 200)",
+    )
+    parser.add_argument(
+        '--trainingSetSize',
+        help='Size of the training set. Choices=["small", "large"]',
+        choices=['small', 'large'],
+        default='small'
     )
     args = parser.parse_args()
     

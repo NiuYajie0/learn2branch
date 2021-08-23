@@ -143,22 +143,31 @@ def exp_main(args):
     # 见 https://www.tensorflow.org/guide/gpu#limiting_gpu_memory_growth 
 
 
-    for seed in seeds:
-
+    if args.trainingSetSize == 'small':
+        ### HYPER PARAMETERS ###
+        max_epochs = 300
+        epoch_size = 20
+        batch_size = 8 # 我的电脑设为16就内存溢出 -- 因此目前这个方法更适合规模小一些的问题 # TODO 用他们后面的那种改进
+        pretrain_batch_size = 16
+        valid_batch_size = 16
+    elif args.trainingSetSize == 'large':
         ### HYPER PARAMETERS ###
         max_epochs = 1000
         epoch_size = 312
         batch_size = 32 # 我的电脑设为16就内存溢出 -- 因此目前这个方法更适合规模小一些的问题 # TODO 用他们后面的那种改进
         pretrain_batch_size = 128
         valid_batch_size = 128
-        lr = 0.001
-        patience = 10
-        early_stopping = 20
-        top_k = [1, 3, 5, 10]
-        train_ncands_limit = np.inf
-        valid_ncands_limit = np.inf
-        sampling_strategy = args.sampling
         
+    patience = 10
+    early_stopping = 20
+    top_k = [1, 3, 5, 10]
+    train_ncands_limit = np.inf
+    valid_ncands_limit = np.inf
+    sampling_strategy = args.sampling
+
+    for seed in seeds:
+
+        lr = 0.001 # 这个后面会修改，因此不能放到外面去
 
         problem_folders = {
             'setcover': f'setcover/500r_1000c_0.05d({sampling_strategy})/{args.sample_seed}',
@@ -169,7 +178,7 @@ def exp_main(args):
         problem_folder = problem_folders[args.problem]
 
         # running_dir = f"trained_models/{args.problem}/{args.model}/{args.seed}"
-        running_dir = f"trained_models/{args.problem}/{sampling_strategy}/ss{args.sample_seed}/ts{seed}" # TODO
+        running_dir = f"trained_models/{args.trainingSetSize}/{args.problem}/{sampling_strategy}/ss{args.sample_seed}/ts{seed}" # TODO
 
         os.makedirs(running_dir)
 
@@ -197,8 +206,8 @@ def exp_main(args):
         tf.random.set_seed(rng.integers(np.iinfo(int).max))
 
         ### SET-UP DATASET ###
-        train_files = list(pathlib.Path(f'data/samples/{problem_folder}/train').glob('sample_*.pkl'))
-        valid_files = list(pathlib.Path(f'data/samples/{problem_folder}/valid').glob('sample_*.pkl'))
+        train_files = list(pathlib.Path(f'data/{args.trainingSetSize}/samples/{problem_folder}/train').glob('sample_*.pkl'))
+        valid_files = list(pathlib.Path(f'data/{args.trainingSetSize}/samples/{problem_folder}/valid').glob('sample_*.pkl'))
 
 
         def take_subset(sample_files, cands_limit):
@@ -337,6 +346,12 @@ if __name__ == '__main__':
         help='seed of the sampled data',
         type=utilities.valid_seed,
         default=0
+    )
+    parser.add_argument(
+        '--trainingSetSize',
+        help='Size of the training set. Choices=["small", "large"]',
+        choices=['small', 'large'],
+        default='small'
     )
     args = parser.parse_args()
 

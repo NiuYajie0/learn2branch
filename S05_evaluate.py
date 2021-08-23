@@ -139,25 +139,25 @@ def exp_main(args):
     time_limit = 3600
 
     if args.problem == 'setcover':
-        # instances += [{'type': 'small', 'path': f"data/instances/setcover/transfer_500r_1000c_0.05d/instance_{i+1}.lp"} for i in range(20)]
-        instances += [{'type': 'medium', 'path': f"data/instances/setcover/transfer_1000r_1000c_0.05d/instance_{i+1}.lp"} for i in range(20)]
-        # instances += [{'type': 'big', 'path': f"data/instances/setcover/transfer_2000r_1000c_0.05d/instance_{i+1}.lp"} for i in range(20)]
+        # instances += [{'type': 'small', 'path': f"data/{args.trainingSetSize}/instances/setcover/transfer_500r_1000c_0.05d/instance_{i+1}.lp"} for i in range(20)]
+        instances += [{'type': 'medium', 'path': f"data/{args.trainingSetSize}/instances/setcover/transfer_1000r_1000c_0.05d/instance_{i+1}.lp"} for i in range(20)]
+        # instances += [{'type': 'big', 'path': f"data/{args.trainingSetSize}/instances/setcover/transfer_2000r_1000c_0.05d/instance_{i+1}.lp"} for i in range(20)]
         # gcnn_models += ['mean_convolution', 'no_prenorm']
 
     elif args.problem == 'cauctions':
-        instances += [{'type': 'small', 'path': f"data/instances/cauctions/transfer_100_500/instance_{i+1}.lp"} for i in range(20)]
-        instances += [{'type': 'medium', 'path': f"data/instances/cauctions/transfer_200_1000/instance_{i+1}.lp"} for i in range(20)]
-        instances += [{'type': 'big', 'path': f"data/instances/cauctions/transfer_300_1500/instance_{i+1}.lp"} for i in range(20)]
+        instances += [{'type': 'small', 'path': f"data/{args.trainingSetSize}/instances/cauctions/transfer_100_500/instance_{i+1}.lp"} for i in range(20)]
+        instances += [{'type': 'medium', 'path': f"data/{args.trainingSetSize}/instances/cauctions/transfer_200_1000/instance_{i+1}.lp"} for i in range(20)]
+        instances += [{'type': 'big', 'path': f"data/{args.trainingSetSize}/instances/cauctions/transfer_300_1500/instance_{i+1}.lp"} for i in range(20)]
 
     elif args.problem == 'facilities':
-        instances += [{'type': 'small', 'path': f"data/instances/facilities/transfer_100_100_5/instance_{i+1}.lp"} for i in range(20)]
-        instances += [{'type': 'medium', 'path': f"data/instances/facilities/transfer_200_100_5/instance_{i+1}.lp"} for i in range(20)]
-        # instances += [{'type': 'big', 'path': f"data/instances/facilities/transfer_400_100_5/instance_{i+1}.lp"} for i in range(20)]
+        instances += [{'type': 'small', 'path': f"data/{args.trainingSetSize}/instances/facilities/transfer_100_100_5/instance_{i+1}.lp"} for i in range(20)]
+        instances += [{'type': 'medium', 'path': f"data/{args.trainingSetSize}/instances/facilities/transfer_200_100_5/instance_{i+1}.lp"} for i in range(20)]
+        # instances += [{'type': 'big', 'path': f"data/{args.trainingSetSize}/instances/facilities/transfer_400_100_5/instance_{i+1}.lp"} for i in range(20)]
 
     elif args.problem == 'indset':
-        instances += [{'type': 'small', 'path': f"data/instances/indset/transfer_500_4/instance_{i+1}.lp"} for i in range(20)]
-        instances += [{'type': 'medium', 'path': f"data/instances/indset/transfer_1000_4/instance_{i+1}.lp"} for i in range(20)]
-        # instances += [{'type': 'big', 'path': f"data/instances/indset/transfer_1500_4/instance_{i+1}.lp"} for i in range(20)]
+        instances += [{'type': 'small', 'path': f"data/{args.trainingSetSize}/instances/indset/transfer_500_4/instance_{i+1}.lp"} for i in range(20)]
+        instances += [{'type': 'medium', 'path': f"data/{args.trainingSetSize}/instances/indset/transfer_1000_4/instance_{i+1}.lp"} for i in range(20)]
+        # instances += [{'type': 'big', 'path': f"data/{args.trainingSetSize}/instances/indset/transfer_1500_4/instance_{i+1}.lp"} for i in range(20)]
 
     else:
         raise NotImplementedError
@@ -251,8 +251,9 @@ def exp_main(args):
         'walltime',
         'proctime',
     ]
-    os.makedirs('results', exist_ok=True)
-    with open(f"results/{result_file}", 'w', newline='') as csvfile:
+    resultDir = f'results/{args.trainingSetSize}/{args.problem}'
+    os.makedirs(resultDir, exist_ok=True)
+    with open(f"{resultDir}/{result_file}", 'w', newline='') as csvfile:
         writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
         writer.writeheader()
 
@@ -339,6 +340,12 @@ if __name__ == '__main__':
         help='seed of the sampled data',
         type=utilities.valid_seed,
         default=0
+    )
+    parser.add_argument(
+        '--trainingSetSize',
+        help='Size of the training set. Choices=["small", "large"]',
+        choices=['small', 'large'],
+        default='small'
     )
     args = parser.parse_args()
 

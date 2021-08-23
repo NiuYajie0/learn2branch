@@ -117,8 +117,8 @@ def exp_main(args):
     print(f"gpu: {args.gpu}")
     print(f"sampling: {args.sampling}")
 
-    os.makedirs("results", exist_ok=True)
-    # result_file = f"results/{args.problem}_validation_{time.strftime('%Y%m%d-%H%M%S')}.csv"
+    os.makedirs(f"results/{args.trainingSetSize}", exist_ok=True)
+    # result_file = f"results/{args.trainingSetSize}/{args.problem}_validation_{time.strftime('%Y%m%d-%H%M%S')}.csv"
     seeds = eval(args.seeds) # TODO
     # seeds = [0, 1]
     gcnn_models = ['baseline']
@@ -141,17 +141,17 @@ def exp_main(args):
         }
         problem_folder = problem_folders[args.problem]
 
-        test_files = list(pathlib.Path(f"data/samples/{problem_folder}/test").glob('sample_*.pkl'))
-        # test_files = list(pathlib.Path(f"data/samples/{args.problem}/test").glob('sample_*.pkl'))
+        test_files = list(pathlib.Path(f"data/{args.trainingSetSize}/samples/{problem_folder}/test").glob('sample_*.pkl'))
+        # test_files = list(pathlib.Path(f"data/{args.trainingSetSize}/samples/{args.problem}/test").glob('sample_*.pkl'))
         test_files = [str(x) for x in test_files]
 
-        resultDir = f'results/{args.problem}/test_branchingAccSB'
+        resultDir = f'results/{args.trainingSetSize}/{args.problem}/test_branchingAccSB'
         os.makedirs(resultDir, exist_ok=True)
         result_file = f"{resultDir}/{args.problem}_{args.sampling}_on_{testFile_sampling}_ss{args.sample_seed}_test_{time.strftime('%Y%m%d-%H%M%S')}.csv"
 
-        trained_model_path = f"trained_models/{args.problem}/{args.sampling}/ss{args.sample_seed}"
+        trained_model_path = f"trained_models/{args.trainingSetSize}/{args.problem}/{args.sampling}/ss{args.sample_seed}"
 
-        # os.makedirs('results', exist_ok=True)
+        # os.makedirs('results/{args.trainingSetSize}', exist_ok=True)
 
         ### TENSORFLOW SETUP ### 
         if args.gpu == -1:
@@ -197,7 +197,7 @@ def exp_main(args):
                         
                         policy['model'] = model.GCNPolicy()
                         # TODO
-                        # policy['model'].restore_state(f"trained_models/{args.problem}/{policy['name']}/{seed}/best_params.pkl")
+                        # policy['model'].restore_state(f"trained_models/{args.trainingSetSize}/{args.problem}/{policy['name']}/{seed}/best_params.pkl")
                         policy['model'].restore_state(f"{trained_model_path}/ts{train_seed}/best_params.pkl")
                         # policy['model'].call = tfe.defun(policy['model'].call, input_signature=policy['model'].input_signature)
                         policy['batch_datatypes'] = [tf.float32, tf.int32, tf.float32,
@@ -206,20 +206,20 @@ def exp_main(args):
                     else:
                         # load feature normalization parameters
                         try:
-                            with open(f"trained_models/{args.problem}/{policy['name']}/{train_seed}/normalization.pkl", 'rb') as f:
+                            with open(f"trained_models/{args.trainingSetSize}/{args.problem}/{policy['name']}/{train_seed}/normalization.pkl", 'rb') as f:
                                 policy['feat_shift'], policy['feat_scale'] = pickle.load(f)
                         except:
                                 policy['feat_shift'], policy['feat_scale'] = 0, 1
 
                         # load model
                         if policy_name.startswith('svmrank'):
-                            policy['model'] = svmrank.Model().read(f"trained_models/{args.problem}/{policy['name']}/{train_seed}/model.txt")
+                            policy['model'] = svmrank.Model().read(f"trained_models/{args.trainingSetSize}/{args.problem}/{policy['name']}/{train_seed}/model.txt")
                         else:
-                            with open(f"trained_models/{args.problem}/{policy['name']}/{train_seed}/model.pkl", 'rb') as f:
+                            with open(f"trained_models/{args.trainingSetSize}/{args.problem}/{policy['name']}/{train_seed}/model.pkl", 'rb') as f:
                                 policy['model'] = pickle.load(f)
 
                         # load feature specifications
-                        with open(f"trained_models/{args.problem}/{policy['name']}/{train_seed}/feat_specs.pkl", 'rb') as f:
+                        with open(f"trained_models/{args.trainingSetSize}/{args.problem}/{policy['name']}/{train_seed}/feat_specs.pkl", 'rb') as f:
                             feat_specs = pickle.load(f)
 
                         policy['batch_datatypes'] = [tf.float32, tf.int32, tf.int32, tf.float32]
@@ -276,6 +276,12 @@ if __name__ == '__main__':
         help='seed of the sampled data',
         choices=['uniform5', 'depthK', 'depthK2'],
         default='uniform5'
+    )
+    parser.add_argument(
+        '--trainingSetSize',
+        help='Size of the training set. Choices=["small", "large"]',
+        choices=['small', 'large'],
+        default='small'
     )
     args = parser.parse_args()
 

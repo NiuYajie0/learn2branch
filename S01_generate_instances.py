@@ -552,7 +552,7 @@ def exp_main(args):
 
         # train instances
         n = n_train_instances
-        lp_dir = f'data/instances/setcover/train_{nrows}r_{ncols}c_{dens}d'
+        lp_dir = f'data/{args.trainingSetSize}/instances/setcover/train_{nrows}r_{ncols}c_{dens}d'
         print(f"{n} instances in {lp_dir}")
         os.makedirs(lp_dir)
         filenames.extend([os.path.join(lp_dir, f'instance_{i+1}.lp') for i in range(n)])
@@ -562,7 +562,7 @@ def exp_main(args):
 
         # validation instances
         n = n_valid_instances 
-        lp_dir = f'data/instances/setcover/valid_{nrows}r_{ncols}c_{dens}d'
+        lp_dir = f'data/{args.trainingSetSize}/instances/setcover/valid_{nrows}r_{ncols}c_{dens}d'
         print(f"{n} instances in {lp_dir}")
         os.makedirs(lp_dir)
         filenames.extend([os.path.join(lp_dir, f'instance_{i+1}.lp') for i in range(n)])
@@ -573,7 +573,7 @@ def exp_main(args):
         # small transfer instances
         n = n_transfer_instances
         nrows = 500
-        lp_dir = f'data/instances/setcover/transfer_{nrows}r_{ncols}c_{dens}d'
+        lp_dir = f'data/{args.trainingSetSize}/instances/setcover/transfer_{nrows}r_{ncols}c_{dens}d'
         print(f"{n} instances in {lp_dir}")
         os.makedirs(lp_dir)
         filenames.extend([os.path.join(lp_dir, f'instance_{i+1}.lp') for i in range(n)])
@@ -584,7 +584,7 @@ def exp_main(args):
         # medium transfer instances
         n = n_transfer_instances
         nrows = 1000
-        lp_dir = f'data/instances/setcover/transfer_{nrows}r_{ncols}c_{dens}d'
+        lp_dir = f'data/{args.trainingSetSize}/instances/setcover/transfer_{nrows}r_{ncols}c_{dens}d'
         print(f"{n} instances in {lp_dir}")
         os.makedirs(lp_dir)
         filenames.extend([os.path.join(lp_dir, f'instance_{i+1}.lp') for i in range(n)])
@@ -595,7 +595,7 @@ def exp_main(args):
         # big transfer instances
         n = n_transfer_instances
         nrows = 2000
-        lp_dir = f'data/instances/setcover/transfer_{nrows}r_{ncols}c_{dens}d'
+        lp_dir = f'data/{args.trainingSetSize}/instances/setcover/transfer_{nrows}r_{ncols}c_{dens}d'
         print(f"{n} instances in {lp_dir}")
         os.makedirs(lp_dir)
         filenames.extend([os.path.join(lp_dir, f'instance_{i+1}.lp') for i in range(n)])
@@ -607,7 +607,7 @@ def exp_main(args):
         n = n_test_instances
         nrows = 500
         ncols = 1000
-        lp_dir = f'data/instances/setcover/test_{nrows}r_{ncols}c_{dens}d'
+        lp_dir = f'data/{args.trainingSetSize}/instances/setcover/test_{nrows}r_{ncols}c_{dens}d'
         print(f"{n} instances in {lp_dir}")
         os.makedirs(lp_dir)
         filenames.extend([os.path.join(lp_dir, f'instance_{i+1}.lp') for i in range(n)])
@@ -631,7 +631,7 @@ def exp_main(args):
 
         # train instances
         n = n_train_instances
-        lp_dir = f'data/instances/indset/train_{number_of_nodes}_{affinity}'
+        lp_dir = f'data/{args.trainingSetSize}/instances/indset/train_{number_of_nodes}_{affinity}'
         print(f"{n} instances in {lp_dir}")
         os.makedirs(lp_dir)
         filenames.extend([os.path.join(lp_dir, f'instance_{i+1}.lp') for i in range(n)])
@@ -639,7 +639,7 @@ def exp_main(args):
 
         # validation instances
         n = n_valid_instances
-        lp_dir = f'data/instances/indset/valid_{number_of_nodes}_{affinity}'
+        lp_dir = f'data/{args.trainingSetSize}/instances/indset/valid_{number_of_nodes}_{affinity}'
         print(f"{n} instances in {lp_dir}")
         os.makedirs(lp_dir)
         filenames.extend([os.path.join(lp_dir, f'instance_{i+1}.lp') for i in range(n)])
@@ -648,7 +648,7 @@ def exp_main(args):
         # small transfer instances
         n = n_transfer_instances
         number_of_nodes = 500
-        lp_dir = f'data/instances/indset/transfer_{number_of_nodes}_{affinity}'
+        lp_dir = f'data/{args.trainingSetSize}/instances/indset/transfer_{number_of_nodes}_{affinity}'
         print(f"{n} instances in {lp_dir}")
         os.makedirs(lp_dir)
         filenames.extend([os.path.join(lp_dir, f'instance_{i+1}.lp') for i in range(n)])
@@ -657,7 +657,7 @@ def exp_main(args):
         # medium transfer instances
         n = n_transfer_instances
         number_of_nodes = 1000
-        lp_dir = f'data/instances/indset/transfer_{number_of_nodes}_{affinity}'
+        lp_dir = f'data/{args.trainingSetSize}/instances/indset/transfer_{number_of_nodes}_{affinity}'
         print(f"{n} instances in {lp_dir}")
         os.makedirs(lp_dir)
         filenames.extend([os.path.join(lp_dir, f'instance_{i+1}.lp') for i in range(n)])
@@ -666,7 +666,7 @@ def exp_main(args):
         # big transfer instances
         n = n_transfer_instances
         number_of_nodes = 1500
-        lp_dir = f'data/instances/indset/transfer_{number_of_nodes}_{affinity}'
+        lp_dir = f'data/{args.trainingSetSize}/instances/indset/transfer_{number_of_nodes}_{affinity}'
         print(f"{n} instances in {lp_dir}")
         os.makedirs(lp_dir)
         filenames.extend([os.path.join(lp_dir, f'instance_{i+1}.lp') for i in range(n)])
@@ -675,7 +675,7 @@ def exp_main(args):
         # test instances
         n = n_test_instances
         number_of_nodes = 500
-        lp_dir = f'data/instances/indset/test_{number_of_nodes}_{affinity}'
+        lp_dir = f'data/{args.trainingSetSize}/instances/indset/test_{number_of_nodes}_{affinity}'
         print(f"{n} instances in {lp_dir}")
         os.makedirs(lp_dir)
         filenames.extend([os.path.join(lp_dir, f'instance_{i+1}.lp') for i in range(n)])
@@ -698,7 +698,7 @@ def exp_main(args):
 
         # train instances
         n = n_train_instances
-        lp_dir = f'data/instances/cauctions/train_{number_of_items}_{number_of_bids}'
+        lp_dir = f'data/{args.trainingSetSize}/instances/cauctions/train_{number_of_items}_{number_of_bids}'
         print(f"{n} instances in {lp_dir}")
         os.makedirs(lp_dir)
         filenames.extend([os.path.join(lp_dir, f'instance_{i+1}.lp') for i in range(n)])
@@ -707,7 +707,7 @@ def exp_main(args):
 
         # validation instances
         n = n_valid_instances
-        lp_dir = f'data/instances/cauctions/valid_{number_of_items}_{number_of_bids}'
+        lp_dir = f'data/{args.trainingSetSize}/instances/cauctions/valid_{number_of_items}_{number_of_bids}'
         print(f"{n} instances in {lp_dir}")
         os.makedirs(lp_dir)
         filenames.extend([os.path.join(lp_dir, f'instance_{i+1}.lp') for i in range(n)])
@@ -718,7 +718,7 @@ def exp_main(args):
         n = n_transfer_instances
         number_of_items = 100
         number_of_bids = 500
-        lp_dir = f'data/instances/cauctions/transfer_{number_of_items}_{number_of_bids}'
+        lp_dir = f'data/{args.trainingSetSize}/instances/cauctions/transfer_{number_of_items}_{number_of_bids}'
         print(f"{n} instances in {lp_dir}")
         os.makedirs(lp_dir)
         filenames.extend([os.path.join(lp_dir, f'instance_{i+1}.lp') for i in range(n)])
@@ -729,7 +729,7 @@ def exp_main(args):
         n = n_transfer_instances
         number_of_items = 200
         number_of_bids = 1000
-        lp_dir = f'data/instances/cauctions/transfer_{number_of_items}_{number_of_bids}'
+        lp_dir = f'data/{args.trainingSetSize}/instances/cauctions/transfer_{number_of_items}_{number_of_bids}'
         print(f"{n} instances in {lp_dir}")
         os.makedirs(lp_dir)
         filenames.extend([os.path.join(lp_dir, f'instance_{i+1}.lp') for i in range(n)])
@@ -740,7 +740,7 @@ def exp_main(args):
         n = n_transfer_instances
         number_of_items = 300
         number_of_bids = 1500
-        lp_dir = f'data/instances/cauctions/transfer_{number_of_items}_{number_of_bids}'
+        lp_dir = f'data/{args.trainingSetSize}/instances/cauctions/transfer_{number_of_items}_{number_of_bids}'
         print(f"{n} instances in {lp_dir}")
         os.makedirs(lp_dir)
         filenames.extend([os.path.join(lp_dir, f'instance_{i+1}.lp') for i in range(n)])
@@ -751,7 +751,7 @@ def exp_main(args):
         n = n_test_instances
         number_of_items = 100
         number_of_bids = 500
-        lp_dir = f'data/instances/cauctions/test_{number_of_items}_{number_of_bids}'
+        lp_dir = f'data/{args.trainingSetSize}/instances/cauctions/test_{number_of_items}_{number_of_bids}'
         print(f"{n} instances in {lp_dir}")
         os.makedirs(lp_dir)
         filenames.extend([os.path.join(lp_dir, f'instance_{i+1}.lp') for i in range(n)])
@@ -776,7 +776,7 @@ def exp_main(args):
 
         # train instances
         n = n_train_instances
-        lp_dir = f'data/instances/facilities/train_{number_of_customers}_{number_of_facilities}_{ratio}'
+        lp_dir = f'data/{args.trainingSetSize}/instances/facilities/train_{number_of_customers}_{number_of_facilities}_{ratio}'
         print(f"{n} instances in {lp_dir}")
         os.makedirs(lp_dir)
         filenames.extend([os.path.join(lp_dir, f'instance_{i+1}.lp') for i in range(n)])
@@ -786,7 +786,7 @@ def exp_main(args):
 
         # validation instances
         n = n_valid_instances
-        lp_dir = f'data/instances/facilities/valid_{number_of_customers}_{number_of_facilities}_{ratio}'
+        lp_dir = f'data/{args.trainingSetSize}/instances/facilities/valid_{number_of_customers}_{number_of_facilities}_{ratio}'
         print(f"{n} instances in {lp_dir}")
         os.makedirs(lp_dir)
         filenames.extend([os.path.join(lp_dir, f'instance_{i+1}.lp') for i in range(n)])
@@ -798,7 +798,7 @@ def exp_main(args):
         n = n_transfer_instances
         number_of_customers = 100
         number_of_facilities = 100
-        lp_dir = f'data/instances/facilities/transfer_{number_of_customers}_{number_of_facilities}_{ratio}'
+        lp_dir = f'data/{args.trainingSetSize}/instances/facilities/transfer_{number_of_customers}_{number_of_facilities}_{ratio}'
         print(f"{n} instances in {lp_dir}")
         os.makedirs(lp_dir)
         filenames.extend([os.path.join(lp_dir, f'instance_{i+1}.lp') for i in range(n)])
@@ -809,7 +809,7 @@ def exp_main(args):
         # medium transfer instances
         n = n_transfer_instances
         number_of_customers = 200
-        lp_dir = f'data/instances/facilities/transfer_{number_of_customers}_{number_of_facilities}_{ratio}'
+        lp_dir = f'data/{args.trainingSetSize}/instances/facilities/transfer_{number_of_customers}_{number_of_facilities}_{ratio}'
         print(f"{n} instances in {lp_dir}")
         os.makedirs(lp_dir)
         filenames.extend([os.path.join(lp_dir, f'instance_{i+1}.lp') for i in range(n)])
@@ -820,7 +820,7 @@ def exp_main(args):
         # big transfer instances
         n = n_transfer_instances
         number_of_customers = 400
-        lp_dir = f'data/instances/facilities/transfer_{number_of_customers}_{number_of_facilities}_{ratio}'
+        lp_dir = f'data/{args.trainingSetSize}/instances/facilities/transfer_{number_of_customers}_{number_of_facilities}_{ratio}'
         print(f"{n} instances in {lp_dir}")
         os.makedirs(lp_dir)
         filenames.extend([os.path.join(lp_dir, f'instance_{i+1}.lp') for i in range(n)])
@@ -832,7 +832,7 @@ def exp_main(args):
         n = n_test_instances
         number_of_customers = 100
         number_of_facilities = 100
-        lp_dir = f'data/instances/facilities/test_{number_of_customers}_{number_of_facilities}_{ratio}'
+        lp_dir = f'data/{args.trainingSetSize}/instances/facilities/test_{number_of_customers}_{number_of_facilities}_{ratio}'
         print(f"{n} instances in {lp_dir}")
         os.makedirs(lp_dir)
         filenames.extend([os.path.join(lp_dir, f'instance_{i+1}.lp') for i in range(n)])
@@ -866,6 +866,12 @@ if __name__ == '__main__':
         '-n', '--n_instances',
         help='Number of generated instances as (n_train_instances, n_valid_instances, n_transfer_instances, n_test_instances).',
         default="(100, 20, 10, 20)",
+    )
+    parser.add_argument(
+        '--trainingSetSize',
+        help='Size of the training set. Choices=["small", "large"]',
+        choices=['small', 'large'],
+        default='small'
     )
     args = parser.parse_args()
 
