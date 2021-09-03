@@ -11,7 +11,7 @@ if __name__ == '__main__':
     problem = "cauctions" # choices=['setcover', 'cauctions', 'facilities', 'indset']
     # samplingStrategy = "depthK2" 
     
-    train_seeds = "range(0,6)"
+    train_seeds = "range(6,7)"
     gpu = 0 # CUDA GPU id (-1 for CPU).
 
     trainingSetSize = 'small' # choice=['small', 'large']
@@ -29,7 +29,7 @@ if __name__ == '__main__':
     # S01_generate_instances.exp_main(S01_args)
 
     
-    samplingStrategies = ['uniform5', 'depthK'] # # choices: 'uniform5', 'depthK', 'depthK2', 'depthK_adaptive'
+    samplingStrategies = ['uniform5'] # # choices: 'uniform5', 'depthK', 'depthK2', 'depthK_adaptive'
     sampling_seed = 0
     for samplingStrategy in samplingStrategies:
 

@@ -254,7 +254,7 @@ def exp_main(args):
         pretrain_data = pretrain_data.prefetch(1)
 
         ### MODEL LOADING ###
-        model = importlib.import_module(f'models.{args.model}.model')
+        model = importlib.import_module(f'models.{args.model}.model_NYJ')
         # sys.path.insert(0, os.path.abspath(f'models/{args.model}'))
         # import model
         # importlib.reload(model)
