@@ -11,6 +11,7 @@ from dgl.nn.tensorflow.conv.graphconv import GraphConv
 from keras import backend as b
 import networkx as nx
 import matplotlib.pyplot as plt
+# import pygraphviz as pgv
 
 class PreNormException(Exception):
     pass
@@ -193,6 +194,7 @@ class GCNPolicy(BaseModel):
         self.out_feats = 64
         self.activation = K.activations.relu
         self.initializer = K.initializers.Orthogonal()
+
         # CONSTRAINT EMBEDDING
         self.cons_embedding = K.Sequential([
             PreNormLayer(n_units=self.cons_nfeats),
@@ -211,22 +213,48 @@ class GCNPolicy(BaseModel):
             K.layers.Dense(units=self.emb_size, activation=self.activation, kernel_initializer=self.initializer),
             K.layers.Dense(units=self.emb_size, activation=self.activation, kernel_initializer=self.initializer),
         ])
-       
-        # self.conv_v_to_c=GATConv(self.emb_size,self.out_feats,self.num_heads,feat_drop=0.4,attn_drop=0.4,negative_slope=0.2,residual=True,activation=tf.nn.elu,allow_zero_in_degree=True)
-        # self.conv_c_to_v=GATConv(self.emb_size,self.out_feats,self.num_heads,feat_drop=0.4,attn_drop=0.4,negative_slope=0.2,residual=True,activation=tf.nn.elu,allow_zero_in_degree=True)
-        # self.conv_v_to_c = GraphConv(self.emb_size, self.out_feats,norm='both', weight=True, bias=True)
-        # self.conv_c_to_v = GraphConv(self.emb_size, self.out_feats,norm='both', weight=True, bias=True)
+
+        self.feature_module_left = K.Sequential([
+            K.layers.Dense(units=self.emb_size, activation=None, use_bias=True, kernel_initializer=self.initializer)
+        ])
+
+        self.feature_module_right = K.Sequential([
+            K.layers.Dense(units=self.emb_size, activation=None, use_bias=False, kernel_initializer=self.initializer)
+        ])
+        
+        self.gat_conv = dglnn.HeteroGraphConv({
+            'edge1' : dglnn.GraphConv(self.emb_size,self.out_feats,norm="none",weight=False, bias=False,allow_zero_in_degree = True),
+            'edge2' : dglnn.GraphConv(self.emb_size,self.out_feats,norm="none",weight=False, bias=False,allow_zero_in_degree = True)},
+            # 'edge1' : dglnn.SAGEConv(self.emb_size,self.out_feats,aggregator_type = "mean"),
+            # 'edge2' : dglnn.SAGEConv(self.emb_size,self.out_feats,aggregator_type = "mean")},
+            # 'edge1' : dglnn.GATConv(self.emb_size,self.out_feats,self.num_heads),
+            # 'edge2' : dglnn.GATConv(self.emb_size,self.out_feats,self.num_heads)},
+            aggregate='sum')
+
+
+        self.post_conv_module = K.Sequential([
+            PreNormLayer(1, shift=False),  # normalize after convolution
+        ])  
+
+        self.output_conv_module = K.Sequential([
+            K.layers.Dense(units=self.emb_size, activation=None, kernel_initializer=self.initializer),
+            K.layers.Activation(self.activation),
+            K.layers.Dense(units=self.emb_size, activation=None, kernel_initializer=self.initializer),
+        ])
         
         self.output_module = K.Sequential([
             K.layers.Dense(units=self.emb_size, activation=self.activation, kernel_initializer=self.initializer),
             K.layers.Dense(units=1, activation=None, kernel_initializer=self.initializer, use_bias=False),
         ])
+
+
         # build model right-away
         self.build([
             (None, self.cons_nfeats), 
             (2, None),  
             (None, self.edge_nfeats), 
             (None, self.var_nfeats),  
+            # (None, ),
             (None, ), 
             (None, ), 
         ])
@@ -254,9 +282,16 @@ class GCNPolicy(BaseModel):
             self.cons_embedding.build(c_shape)
             self.edge_embedding.build(ev_shape)
             self.var_embedding.build(v_shape)
+            self.feature_module_left.build(emb_shape)
+            self.feature_module_right.build(emb_shape) 
+            self.gat_conv.build(emb_shape)
+            self.post_conv_module.build(emb_shape)
+            self.output_conv_module.build([None, self.emb_size + self.emb_size])
+            self.output_module.build(emb_shape)
             # self.conv_v_to_c.build((emb_shape,emb_shape))
             # self.conv_c_to_v.build((emb_shape,emb_shape))
-            self.output_module.build(emb_shape)
+            # self.post_conv_module.build([None, self.emb_size])
+            # self.output_module.build(emb_shape)
             self.built = True
 
     @staticmethod
@@ -323,28 +358,31 @@ class GCNPolicy(BaseModel):
         constraint_features = self.cons_embedding(constraint_features)  #(97970, 64) #(49739, 64)
         edge_features = self.edge_embedding(edge_features) #(664478, 1)  #(339984, 1)
         variable_features = self.var_embedding(variable_features) #=(161600, 64)  #(80800, 64)
+        
 
         # GRAPH CONVOLUTIONS
         g = dgl.heterograph({
-            ('constraints', 'edge2', 'variables'):(edge_indices[0],edge_indices[1]),
-            ('variables', 'edge1', 'constraints'):(edge_indices[1],edge_indices[0])
-         })
-        conv = dglnn.HeteroGraphConv({
-            'edge1' : dglnn.GraphConv(64,64,norm='both', weight=True, bias=True),
-            'edge2' : dglnn.GraphConv(64,64,norm='both', weight=True, bias=True)},
-            aggregate='sum')
-        h1 = {"variables":variable_features,"constraints":constraint_features}
-        h2 = conv(g,h1)
-        v1 = {"constraints":h2["constraints"],"variables":h2["variables"]}
-        v2 = conv(g,v1)
-        variable_features=v2["variables"]
-        
-
-        # constraint_features = self.conv_v_to_c(g,(variable_features,constraint_features))
-        # # constraint_features = tf.reshape(constraint_features, (constraint_features.shape[0], -1))        
-        # variable_features = self.conv_c_to_v(g,(constraint_features,variable_features))
-        # variable_features = tf.reshape(variable_features, (variable_features.shape[0], -1))
-
+            ('variables', 'edge1', 'constraints'):(edge_indices[1],edge_indices[0]),
+            ('constraints', 'edge2', 'variables'):(edge_indices[0],edge_indices[1])
+         }) 
+         
+        h_src = {"variables":self.feature_module_right(variable_features)}
+        h_dst = {"constraints":self.feature_module_left(constraint_features)}
+        h1 = self.gat_conv(g,(h_src,h_dst))
+        # constraint_features1 = tf.reshape(h1["constraints"],(h1["constraints"].shape[0],-1))
+        conv_output_c = self.post_conv_module(h1["constraints"])
+        constraint_features = self.output_conv_module(tf.concat([
+            conv_output_c,
+            constraint_features,
+        ], axis=1))
+        v_src = {"constraints":self.feature_module_left(constraint_features)}
+        v1 = self.gat_conv(g,(v_src, h_src))
+        # variable_features1 = tf.reshape(v1["variables"],(v1["variables"].shape[0],-1))
+        conv_output_v = self.post_conv_module(v1["variables"])
+        variable_features = self.output_conv_module(tf.concat([
+            conv_output_v,
+            variable_features,
+        ], axis=1))
 
         # OUTPUT
         output = self.output_module(variable_features)

@@ -130,7 +130,7 @@ def exp_main(args):
     # if args.problem == 'setcover':
     #     gcnn_models += ['mean_convolution', 'no_prenorm']
 
-    testFiles_sampling = ['uniform5', 'depthK', 'depthK2']
+    testFiles_sampling = ['uniform5']
     for testFile_sampling in testFiles_sampling:
         
         problem_folders = {

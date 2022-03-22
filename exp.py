@@ -2,9 +2,13 @@
 #%%
 import S01_generate_instances, S02_generate_dataset, S03_train_gcnn, S04_test
 from types import SimpleNamespace
+import os
+
 
 #%%
 if __name__ == '__main__':
+
+    os.environ['DGLBACKEND'] = 'tensorflow'
 
     # %%
 
@@ -62,14 +66,14 @@ if __name__ == '__main__':
         S03_args = SimpleNamespace(**S03_args)
         S03_train_gcnn.exp_main(S03_args)
 
-        # # %%
-        # ### 04 - Test branching accuracies w.r.t. strong branching
-        # S04_args = {
-        #     'gpu': gpu,
-        #     'problem': problem,
-        #     'sampling' : samplingStrategy,
-        #     'sample_seed' : sampling_seed,
-        #     'seeds' : train_seeds, # python expression as string, to be used with eval(...)
-        # }
-        # S04_args = SimpleNamespace(**S04_args)
-        # S04_test.exp_main(S04_args)
+        # %%
+        ### 04 - Test branching accuracies w.r.t. strong branching
+        S04_args = {
+            'gpu': gpu,
+            'problem': problem,
+            'sampling' : samplingStrategy,
+            'sample_seed' : sampling_seed,
+            'seeds' : train_seeds, # python expression as string, to be used with eval(...)
+        }
+        S04_args = SimpleNamespace(**S04_args)
+        S04_test.exp_main(S04_args)
