@@ -1,6 +1,6 @@
 
 #%%
-import S01_generate_instances, S02_generate_dataset, S03_train_gcnn, S04_test
+import l2b.S01_generate_instances as S01_generate_instances, S02_generate_dataset, S03_train_gcnn, S04_test
 from types import SimpleNamespace
 import os
 

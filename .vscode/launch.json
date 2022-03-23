@@ -11,7 +11,16 @@
             "type": "python",
             "request": "launch",
             "program": "${file}",
-            "console": "integratedTerminal"
+            "console": "integratedTerminal",
+            "justMyCode": false,
+        },
+        {
+            "name": "Python: Exp (Hybrid)",
+            "type": "python",
+            "request": "launch",
+            "program": "exp_hybrid.py",
+            "console": "integratedTerminal",
+            "justMyCode": false,
         },
         {
             "name": "01 - Generate Instances",
@@ -34,6 +43,20 @@
                 "facilities", // choices=['setcover', 'cauctions', 'facilities', 'indset']
                 "--sampling", "depthK2", // choices: uniform5, depthK, depthK2
                 "--n_samples", "(1000, 200, 200)",
+                "--njobs", "5",
+                "-s 1",
+            ],
+        },
+        {
+            "name": "02 - Generate Dataset (Hybrid)",
+            "type": "python",
+            "request": "launch",
+            "program": "l2b/hybrid_l2b/S02_generate_dataset.py",
+            "console": "integratedTerminal",
+            "justMyCode": false,
+            "args": [
+                "cauctions", // choices=['setcover', 'cauctions', 'facilities', 'indset']
+                // "--n_samples", "(1000, 200, 200)",
                 "--njobs", "5",
                 "-s 1",
             ],

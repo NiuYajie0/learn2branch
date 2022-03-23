@@ -6,7 +6,6 @@ import glob
 import numpy as np
 import shutil
 import gzip
-from numpy.core.numeric import NaN
 
 import pyscipopt as scip
 import utilities
