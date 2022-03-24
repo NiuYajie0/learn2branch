@@ -1,7 +1,8 @@
 
 #%%
+from sympy import false
 import l2b.S01_generate_instances as S01_generate_instances
-from l2b.hybrid_l2b import S02_generate_dataset, S03_train_gcnn_torch
+from l2b.hybrid_l2b import S02_generate_dataset, S03_train_gcnn_torch, S03_train_hybrid
 from types import SimpleNamespace
 import os
 
@@ -13,14 +14,18 @@ if __name__ == '__main__':
 
     # %%
 
-    problem = "cauctions" # choices=['setcover', 'cauctions', 'facilities', 'indset']
+    problem = "setcover" # choices=['setcover', 'cauctions', 'facilities', 'indset']
     
     sampling_seed = 1
     
-    train_seeds = "range(6,7)"
+    train_seeds = range(6,7)
     gpu = 0 # CUDA GPU id (-1 for CPU).
 
     trainingSetSize = 'small' # choice=['small', 'large']
+
+    ml_model_baseline = 'baseline_torch'
+
+    ml_model_hybrid = 'film'
 
     # %%
     
@@ -52,17 +57,40 @@ if __name__ == '__main__':
 
     # %%
     ## 03 - Train GCNN
-    S03_args = {
-        'model' : 'baseline',
-        'gpu' : gpu,
-        'problem' : problem,
-        # 'sampling' : samplingStrategy,
-        'sample_seed' : sampling_seed,
-        'seeds' : train_seeds, # python expression as string, to be used with eval(...)
-        'trainingSetSize' : trainingSetSize
-    }
-    S03_args = SimpleNamespace(**S03_args)
-    S03_train_gcnn_torch.exp_main(S03_args)
+    # for train_seed in train_seeds:
+    #     S03_args = {
+    #         'model' : ml_model_baseline,
+    #         'gpu' : gpu,
+    #         'problem' : problem,
+    #         "l2": 0.0,
+    #         # "data_path": "",
+    #         # 'sampling' : samplingStrategy,
+    #         'sample_seed' : sampling_seed,
+    #         'seed' : train_seed, # python expression as string, to be used with eval(...)
+    #         'trainingSetSize' : trainingSetSize
+    #     }
+    #     S03_args = SimpleNamespace(**S03_args)
+    #     S03_train_gcnn_torch.exp_main(S03_args)
+
+    ## 03 - Train GCNN
+    for train_seed in train_seeds:
+        S03_args = {
+            'problem' : problem,
+            'model' : ml_model_hybrid,
+            'seed' : train_seed, # python expression as string, to be used with eval(...)
+            'gpu' : gpu,
+            'no_e2e': false,
+            'distilled': false,
+            'at': '', # choices: ['ED', 'MHE', '']
+            'beta_at': 0,
+            "l2": 0.0,
+            # "data_path": "",
+            # 'sampling' : samplingStrategy,
+            'sample_seed' : sampling_seed,
+            'trainingSetSize' : trainingSetSize
+        }
+        S03_args = SimpleNamespace(**S03_args)
+        S03_train_hybrid.exp_main(S03_args)
 
     # # %%
     # ### 04 - Test branching accuracies w.r.t. strong branching

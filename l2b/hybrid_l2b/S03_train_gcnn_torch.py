@@ -20,7 +20,7 @@ from .utilities import log
 from .utilities_gcnn_torch import GCNNDataset as Dataset
 from .utilities_gcnn_torch import load_batch_gcnn as load_batch
 
-def pretrain(model, dataloader):
+def pretrain(model, dataloader, **kwargs):
     """
     Pre-normalizes a model (i.e., PreNormLayer layers) over the given samples.
 
@@ -34,6 +34,9 @@ def pretrain(model, dataloader):
     ------
     number of PreNormLayer layers processed.
     """
+
+    device = kwargs['device']
+
     model.pre_train_init()
     i = 0
     while True:
@@ -54,7 +57,7 @@ def pretrain(model, dataloader):
 
     return i
 
-def process(model, dataloader, top_k, optimizer=None):
+def process(model, dataloader, top_k, optimizer=None, **kwargs):
     """
     Executes a forward and backward pass of model over the dataset.
 
@@ -78,6 +81,8 @@ def process(model, dataloader, top_k, optimizer=None):
     """
     mean_loss = 0
     mean_kacc = np.zeros(len(top_k))
+
+    device = kwargs['device']
 
     n_samples_processed = 0
     for batch in dataloader:
@@ -126,6 +131,144 @@ def _loss_fn(logits, labels, weights):
     loss = torch.nn.CrossEntropyLoss(reduction='none')(logits, labels)
     return torch.sum(loss * weights)
 
+def exp_main(args):
+    ### HYPER PARAMETERS ###
+    max_epochs = 500
+    epoch_size = 312
+    batch_size = 32
+    pretrain_batch_size = 128
+    valid_batch_size = 128
+    lr = 0.001
+    patience = 15
+    early_stopping = 30
+    top_k = [1, 3, 5, 10]
+    # train_sample_limit = 150000
+    # valid_sample_limit = 30000
+    num_workers = 1
+
+    research_tag = 'hybrid_l2b'
+
+    problem_folders = {
+        'setcover': '500r_1000c_0.05d',
+        'cauctions': '100_500',
+        'facilities': '100_100_5',
+        'indset': '750_4',
+    }
+
+    problem_folder = problem_folders[args.problem]
+
+    # DIRECTORY NAMING
+    modeldir = f"{args.model}"
+    if args.l2 > 0:
+        modeldir = f"{modeldir}_l2_{args.l2}"
+
+    running_dir = f"trained_models/{research_tag}/{args.trainingSetSize}/{args.problem}/{modeldir}/{args.seed}"
+    os.makedirs(running_dir) # TODO 加个功能，如果已经存在，就多训练一个模型，模型后面加个号就行了，比如debug2
+
+    ### LOG ###
+    logfile = os.path.join(running_dir, 'log.txt')
+
+    log(f"max_epochs: {max_epochs}", logfile)
+    log(f"epoch_size: {epoch_size}", logfile)
+    log(f"batch_size: {batch_size}", logfile)
+    log(f"pretrain_batch_size: {pretrain_batch_size}", logfile)
+    log(f"valid_batch_size : {valid_batch_size }", logfile)
+    log(f"lr: {lr}", logfile)
+    log(f"patience : {patience }", logfile)
+    log(f"early_stopping : {early_stopping }", logfile)
+    log(f"top_k: {top_k}", logfile)
+    log(f"problem: {args.problem}", logfile)
+    log(f"gpu: {args.gpu}", logfile)
+    log(f"seed: {args.seed}", logfile)
+    log(f"l2 {args.l2}", logfile)
+
+    ### NUMPY / TORCH SETUP ###
+    if args.gpu == -1:
+        os.environ['CUDA_VISIBLE_DEVICES'] = ''
+        device = torch.device("cpu")
+    else:
+        os.environ['CUDA_VISIBLE_DEVICES'] = f'{args.gpu}'
+        device = torch.device(f"cuda" if torch.cuda.is_available() else "cpu")
+    
+    rng = np.random.RandomState(args.seed)
+    torch.manual_seed(rng.randint(np.iinfo(int).max))
+
+    ### SET-UP DATASET ###
+    dir = f'data/{research_tag}/{args.trainingSetSize}/samples/{args.problem}/{problem_folder}/{args.sample_seed}'
+    # if args.data_path:
+    #     dir = f"{args.data_path}/{args.problem}/{problem_folder}/{args.sample_seed}"
+
+    train_files = list(pathlib.Path(f'{dir}/train').glob('sample_*.pkl'))
+    valid_files = list(pathlib.Path(f'{dir}/valid').glob('sample_*.pkl'))
+
+    log(f"{len(train_files)} training samples", logfile)
+    log(f"{len(valid_files)} validation samples", logfile)
+
+    train_files = [str(x) for x in train_files]
+    valid_files = [str(x) for x in valid_files]
+
+    valid_data = Dataset(valid_files)
+    valid_data = torch.utils.data.DataLoader(valid_data, batch_size=valid_batch_size,
+                            shuffle = False, num_workers = num_workers, collate_fn = load_batch)
+
+    pretrain_files = [f for i, f in enumerate(train_files) if i % 10 == 0]
+    pretrain_data = Dataset(pretrain_files)
+    pretrain_data = torch.utils.data.DataLoader(pretrain_data, batch_size=pretrain_batch_size,
+                            shuffle = False, num_workers = num_workers, collate_fn = load_batch)
+
+    ### MODEL LOADING ###
+
+    model = importlib.import_module(f'..models.{args.model}.model', __name__)
+    model = model.GCNPolicy()
+    model.to(device)
+
+    kwargs = {}
+    # kwargs['train_sample_limit'] = train_sample_limit
+    # kwargs['valid_sample_limit'] = valid_sample_limit
+    kwargs['device'] = device
+
+    ### TRAINING LOOP ###
+    optimizer = torch.optim.Adam(model.parameters(), lr=lr, weight_decay=args.l2)
+    scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.2, patience=patience, verbose=True)
+
+    best_loss = np.inf
+    for epoch in range(max_epochs + 1):
+        log(f"EPOCH {epoch}...", logfile)
+
+        # TRAIN
+        if epoch == 0:
+            n = pretrain(model=model, dataloader=pretrain_data, **kwargs)
+            log(f"PRETRAINED {n} LAYERS", logfile)
+        else:
+            epoch_train_files = rng.choice(train_files, epoch_size * batch_size, replace=True)
+            train_data = Dataset(epoch_train_files)
+            train_data = torch.utils.data.DataLoader(train_data, batch_size=batch_size,
+                                    shuffle = False, num_workers = num_workers, collate_fn = load_batch)
+            train_loss, train_kacc = process(model, train_data, top_k, optimizer, **kwargs)
+            log(f"TRAIN LOSS: {train_loss:0.3f} " + "".join([f" acc@{k}: {acc:0.3f}" for k, acc in zip(top_k, train_kacc)]), logfile)
+
+        # TEST
+        valid_loss, valid_kacc = process(model, valid_data, top_k, None, **kwargs)
+        log(f"VALID LOSS: {valid_loss:0.3f} " + "".join([f" acc@{k}: {acc:0.3f}" for k, acc in zip(top_k, valid_kacc)]), logfile)
+
+        if valid_loss < best_loss:
+            plateau_count = 0
+            best_loss = valid_loss
+            model.save_state(os.path.join(running_dir, 'best_params.pkl'))
+            log(f"  best model so far", logfile)
+        else:
+            plateau_count += 1
+            if plateau_count % early_stopping == 0:
+                log(f"  {plateau_count} epochs without improvement, early stopping", logfile)
+                break
+            if plateau_count % patience == 0:
+                lr *= 0.2
+                log(f"  {plateau_count} epochs without improvement, decreasing learning rate to {lr}", logfile)
+        scheduler.step(valid_loss)
+    model.restore_state(os.path.join(running_dir, 'best_params.pkl'))
+    valid_loss, valid_kacc = process(model, valid_data, top_k, None, **kwargs)
+    log(f"BEST VALID LOSS: {valid_loss:0.3f} " + "".join([f" acc@{k}: {acc:0.3f}" for k, acc in zip(top_k, valid_kacc)]), logfile)
+
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
@@ -152,12 +295,12 @@ if __name__ == '__main__':
         type=int,
         default=0,
     )
-    parser.add_argument(
-        '--data_path',
-        help='name of the folder where train and valid folders are present. Assumes `data/samples` as default.',
-        type=str,
-        default="",
-    )
+    # parser.add_argument(
+    #     '--data_path',
+    #     help='name of the folder where train and valid folders are present. Assumes `data/samples` as default.',
+    #     type=str,
+    #     default="",
+    # )
     parser.add_argument(
         '--l2',
         help='value of l2 regularizer',
@@ -166,134 +309,6 @@ if __name__ == '__main__':
     )
     args = parser.parse_args()
 
-    ### HYPER PARAMETERS ###
-    max_epochs = 500
-    epoch_size = 312
-    batch_size = 32
-    pretrain_batch_size = 128
-    valid_batch_size = 128
-    lr = 0.001
-    patience = 15
-    early_stopping = 30
-    top_k = [1, 3, 5, 10]
-    train_sample_limit = 150000
-    valid_sample_limit = 30000
-    num_workers = 10
 
-    problem_folders = {
-        'setcover': '500r_1000c_0.05d',
-        'cauctions': '100_500',
-        'facilities': '100_100_5',
-        'indset': '750_4',
-    }
 
-    problem_folder = problem_folders[args.problem]
-
-    # DIRECTORY NAMING
-    modeldir = f"{args.model}"
-    if args.l2 > 0:
-        modeldir = f"{modeldir}_l2_{args.l2}"
-
-    running_dir = f"trained_models/{args.problem}/{modeldir}/{args.seed}"
-    os.makedirs(running_dir)
-
-    ### LOG ###
-    logfile = os.path.join(running_dir, 'log.txt')
-
-    log(f"max_epochs: {max_epochs}", logfile)
-    log(f"epoch_size: {epoch_size}", logfile)
-    log(f"batch_size: {batch_size}", logfile)
-    log(f"pretrain_batch_size: {pretrain_batch_size}", logfile)
-    log(f"valid_batch_size : {valid_batch_size }", logfile)
-    log(f"lr: {lr}", logfile)
-    log(f"patience : {patience }", logfile)
-    log(f"early_stopping : {early_stopping }", logfile)
-    log(f"top_k: {top_k}", logfile)
-    log(f"problem: {args.problem}", logfile)
-    log(f"gpu: {args.gpu}", logfile)
-    log(f"seed: {args.seed}", logfile)
-    log(f"l2 {args.l2}", logfile)
-
-    ### NUMPY / TORCH SETUP ###
-    if args.gpu == -1:
-        os.environ['CUDA_VISIBLE_DEVICES'] = ''
-        device = torch.device("cpu")
-    else:
-        os.environ['CUDA_VISIBLE_DEVICES'] = f'{args.gpu}'
-        device = torch.device(f"cuda" if torch.cuda.is_available() else "cpu")
-
-    rng = np.random.RandomState(args.seed)
-    torch.manual_seed(rng.randint(np.iinfo(int).max))
-
-    ### SET-UP DATASET ###
-    dir = f'data/samples/{args.problem}/{problem_folder}'
-    if args.data_path:
-        dir = f"{args.data_path}/{args.problem}/{problem_folder}"
-
-    train_files = list(pathlib.Path(f'{dir}/train').glob('sample_*.pkl'))
-    valid_files = list(pathlib.Path(f'{dir}/valid').glob('sample_*.pkl'))
-
-    log(f"{len(train_files)} training samples", logfile)
-    log(f"{len(valid_files)} validation samples", logfile)
-
-    train_files = [str(x) for x in train_files]
-    valid_files = [str(x) for x in valid_files]
-
-    valid_data = Dataset(valid_files)
-    valid_data = torch.utils.data.DataLoader(valid_data, batch_size=valid_batch_size,
-                            shuffle = False, num_workers = num_workers, collate_fn = load_batch)
-
-    pretrain_files = [f for i, f in enumerate(train_files) if i % 10 == 0]
-    pretrain_data = Dataset(pretrain_files)
-    pretrain_data = torch.utils.data.DataLoader(pretrain_data, batch_size=pretrain_batch_size,
-                            shuffle = False, num_workers = num_workers, collate_fn = load_batch)
-
-    ### MODEL LOADING ###
-    sys.path.insert(0, os.path.abspath(f'models/{args.model}'))
-    import model
-    importlib.reload(model)
-    model = model.GCNPolicy()
-    del sys.path[0]
-    model.to(device)
-
-    ### TRAINING LOOP ###
-    optimizer = torch.optim.Adam(model.parameters(), lr=lr, weight_decay=args.l2)
-    scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.2, patience=patience, verbose=True)
-
-    best_loss = np.inf
-    for epoch in range(max_epochs + 1):
-        log(f"EPOCH {epoch}...", logfile)
-
-        # TRAIN
-        if epoch == 0:
-            n = pretrain(model=model, dataloader=pretrain_data)
-            log(f"PRETRAINED {n} LAYERS", logfile)
-        else:
-            epoch_train_files = rng.choice(train_files, epoch_size * batch_size, replace=True)
-            train_data = Dataset(epoch_train_files)
-            train_data = torch.utils.data.DataLoader(train_data, batch_size=batch_size,
-                                    shuffle = False, num_workers = num_workers, collate_fn = load_batch)
-            train_loss, train_kacc = process(model, train_data, top_k, optimizer)
-            log(f"TRAIN LOSS: {train_loss:0.3f} " + "".join([f" acc@{k}: {acc:0.3f}" for k, acc in zip(top_k, train_kacc)]), logfile)
-
-        # TEST
-        valid_loss, valid_kacc = process(model, valid_data, top_k, None)
-        log(f"VALID LOSS: {valid_loss:0.3f} " + "".join([f" acc@{k}: {acc:0.3f}" for k, acc in zip(top_k, valid_kacc)]), logfile)
-
-        if valid_loss < best_loss:
-            plateau_count = 0
-            best_loss = valid_loss
-            model.save_state(os.path.join(running_dir, 'best_params.pkl'))
-            log(f"  best model so far", logfile)
-        else:
-            plateau_count += 1
-            if plateau_count % early_stopping == 0:
-                log(f"  {plateau_count} epochs without improvement, early stopping", logfile)
-                break
-            if plateau_count % patience == 0:
-                lr *= 0.2
-                log(f"  {plateau_count} epochs without improvement, decreasing learning rate to {lr}", logfile)
-        scheduler.step(valid_loss)
-    model.restore_state(os.path.join(running_dir, 'best_params.pkl'))
-    valid_loss, valid_kacc = process(model, valid_data, top_k, None)
-    log(f"BEST VALID LOSS: {valid_loss:0.3f} " + "".join([f" acc@{k}: {acc:0.3f}" for k, acc in zip(top_k, valid_kacc)]), logfile)
+    
