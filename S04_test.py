@@ -60,7 +60,6 @@ def padding(output, n_vars_per_sample, fill=-1e8):
 
     return output
 
-
 def process(policy, dataloader, top_k):
     mean_kacc = np.zeros(len(top_k))
 
@@ -121,6 +120,7 @@ def exp_main(args):
     # result_file = f"results/{args.problem}_validation_{time.strftime('%Y%m%d-%H%M%S')}.csv"
     seeds = eval(args.seeds) # TODO
     # seeds = [0, 1]
+    # gcnn_models = ['GraphConv']
     gcnn_models = ['baseline']
     # other_models = ['extratrees_gcnn_agg', 'lambdamart_khalil', 'svmrank_khalil']
     other_models = []

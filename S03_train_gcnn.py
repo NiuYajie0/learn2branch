@@ -5,18 +5,19 @@ import sys
 import pathlib
 import pickle
 import numpy as np
-from time import strftime
-from shutil import copyfile
-import gzip
-
 import tensorflow as tf
-# import tensorflow.contrib.eager as tfe
-
+from tensorflow._api.v2 import summary
+from tensorflow.python import profiler
+from tensorflow.python.ops.gen_summary_ops import summary_writer
 import utilities
 from utilities import log
 
+from datetime import datetime
+# from time import strftime
+# from shutil import copyfile
+import gzip
+# import tensorflow.contrib.eager as tfe
 from utilities_tf import load_batch_gcnn
-
 
 def load_batch_tf(batch_filename_tensor):
     # 在这个
@@ -75,7 +76,6 @@ def pretrain(model, dataloader):
 def process(model, dataloader, top_k, optimizer=None):
     mean_loss = 0
     mean_kacc = np.zeros(len(top_k))
-
     n_samples_processed = 0
     for batch in dataloader:
         # 这里的shapes中有一个维度都会比较大，因为这是concatenate以后的大图的信息
@@ -142,15 +142,16 @@ def exp_main(args):
     # 可能还需要设定最大虚拟GPU大小，用 tf.config.experimental.set_virtual_device_configuration
     # 见 https://www.tensorflow.org/guide/gpu#limiting_gpu_memory_growth 
 
-
     for seed in seeds:
 
         ### HYPER PARAMETERS ###
         max_epochs = 300
         epoch_size = 20
-        batch_size = 8 # 我的电脑设为16就内存溢出 -- 因此目前这个方法更适合规模小一些的问题 # TODO 用他们后面的那种改进
-        pretrain_batch_size = 16
-        valid_batch_size = 16
+        batch_size = 16 # 我的电脑设为16就内存溢出 -- 因此目前这个方法更适合规模小一些的问题 # TODO 用他们后面的那种改进
+        # pretrain_batch_size = 16
+        # valid_batch_size = 16
+        pretrain_batch_size = 8
+        valid_batch_size = 8
         lr = 0.001
         patience = 10
         early_stopping = 20
@@ -243,30 +244,30 @@ def exp_main(args):
         pretrain_data = pretrain_data.batch(pretrain_batch_size)
         pretrain_data = pretrain_data.map(load_batch_tf)
         pretrain_data = pretrain_data.prefetch(1)
-
         ### MODEL LOADING ###
         model = importlib.import_module(f'models.{args.model}.model')
         # sys.path.insert(0, os.path.abspath(f'models/{args.model}'))
         # import model
         # importlib.reload(model)
+        # tf.summary.trace_on(graph = True,profiler = True)
         model = model.GCNPolicy()
         # del sys.path[0]
-        
 
         ### TRAINING LOOP ###
         optimizer = tf.keras.optimizers.Adam(learning_rate=lambda: lr)  # dynamic LR trick
         best_loss = np.inf
+        # time_stamp = "{0:%Y-%m-%dT%H-%M-%S/}".format(datetime.now())
+        # summary_writer = tf.summary.create_file_writer("./tensorboard/train"+time_stamp)
         for epoch in range(max_epochs + 1):
             log(f"EPOCH {epoch}...", logfile)
             epoch_loss_avg = tf.keras.metrics.Mean()
             epoch_accuracy = tf.keras.metrics.Accuracy()
-
             # TRAIN
             if epoch == 0:
                 n = pretrain(model=model, dataloader=pretrain_data)
                 log(f"PRETRAINED {n} LAYERS", logfile)
                 # model compilation
-                # model.call = tf.function(model.call, input_signature=model.input_signature)
+                # model.call = tf.function(model.call, input_signature=model.input_signature) 
             else:
                 # bugfix: tensorflow's shuffle() seems broken...
                 epoch_train_files = rng.choice(train_files, epoch_size * batch_size, replace=True)
@@ -276,8 +277,10 @@ def exp_main(args):
                 train_data = train_data.prefetch(1)
                 train_loss, train_kacc = process(model, train_data, top_k, optimizer)
                 log(f"TRAIN LOSS: {train_loss:0.3f} " + "".join([f" acc@{k}: {acc:0.3f}" for k, acc in zip(top_k, train_kacc)]), logfile)
-
-            # TEST
+                # with summary_writer.as_default():
+                #     tf.summary.scalar("train_loss",train_loss,step=epoch)
+            #**************************************************************************************************************************           
+                # summary_writer.close()
             # 第一次 valid: VALID LOSS: 39.318  acc@1: 0.440 acc@3: 0.785 acc@5: 0.915 acc@10: 0.995
             # 所以 acc@10 本身就很高; 不过和论文中也匹配，facilities这类问题acc@10就是很高
             valid_loss, valid_kacc = process(model, valid_data, top_k, None)
@@ -296,7 +299,9 @@ def exp_main(args):
                 if plateau_count % patience == 0:
                     lr *= 0.2
                     log(f"  {plateau_count} epochs without improvement, decreasing learning rate to {lr}", logfile)
-
+            # TEST
+        # with summary_writer.as_default(): 
+        #     tf.summary.trace_export(name="model_trace",step=0,profiler_outdir = "./tensorboard/model")
         model.restore_state(os.path.join(running_dir, 'best_params.pkl'))
         valid_loss, valid_kacc = process(model, valid_data, top_k, None)
         log(f"BEST VALID LOSS: {valid_loss:0.3f} " + "".join([f" acc@{k}: {acc:0.3f}" for k, acc in zip(top_k, valid_kacc)]), logfile)

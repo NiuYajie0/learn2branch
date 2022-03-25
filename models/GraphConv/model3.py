@@ -2,12 +2,20 @@ import tensorflow as tf
 import tensorflow.keras as K
 import numpy as np
 import pickle
+import dgl
+import dgl.function as fn
+from dgl.nn.tensorflow.conv.gatconv import GATConv
+from keras import backend as b
+
 
 
 class PreNormException(Exception):
     pass
 
-class PreNormLayer(K.layers.Layer):
+
+class PreNormLayer(K.layers.Layer):      #  x ← (x−β)/σ 归一化
+
+
     """
     Our pre-normalization layer, whose purpose is to normalize an input layer
     to zero mean and unit variance to speed-up and stabilize GCN training. The
@@ -15,6 +23,7 @@ class PreNormLayer(K.layers.Layer):
     """
 
     def __init__(self, n_units, shift=True, scale=True):
+        # super(n_units, self).__init__()
         super().__init__()
         assert shift or scale
 
@@ -23,8 +32,9 @@ class PreNormLayer(K.layers.Layer):
                 name=f'{self.name}/shift',
                 shape=(n_units,),
                 trainable=False,
-                initializer=tf.keras.initializers.constant(value=np.zeros((n_units,)),
-                dtype=tf.float32),
+                initializer=tf.keras.initializers.constant(
+                    value=np.zeros((n_units,)),
+                ),
             )
         else:
             self.shift = None
@@ -34,8 +44,9 @@ class PreNormLayer(K.layers.Layer):
                 name=f'{self.name}/scale',
                 shape=(n_units,),
                 trainable=False,
-                initializer=tf.keras.initializers.constant(value=np.ones((n_units,)),
-                dtype=tf.float32),
+                initializer=tf.keras.initializers.constant(
+                    value=np.ones((n_units,)),
+                ),
             )
         else:
             self.scale = None
@@ -45,8 +56,7 @@ class PreNormLayer(K.layers.Layer):
         self.received_updates = False
 
     def build(self, input_shapes):
-        self.built = True
-
+        self.built = True    
     def call(self, input):
         if self.waiting_updates:
             self.update_stats(input)
@@ -111,7 +121,9 @@ class PreNormLayer(K.layers.Layer):
         self.trainable = False
 
 
+
 class BipartiteGraphConvolution(K.Model):
+
     """
     Partial bipartite graph convolution (either left-to-right or right-to-left).
     """
@@ -139,6 +151,10 @@ class BipartiteGraphConvolution(K.Model):
             K.layers.Dense(units=self.emb_size, activation=None, kernel_initializer=self.initializer)
         ])
 
+        self.post_conv_module = K.Sequential([
+            PreNormLayer(1, shift=False),  # normalize after convolution
+        ])
+     
         # output_layers
         self.output_module = K.Sequential([
             K.layers.Dense(units=self.emb_size, activation=None, kernel_initializer=self.initializer),
@@ -153,10 +169,11 @@ class BipartiteGraphConvolution(K.Model):
         self.feature_module_edge.build(ev_shape)
         self.feature_module_right.build(r_shape)
         self.feature_module_final.build([None, self.emb_size])
+        self.post_conv_module.build([None, self.emb_size])
         self.output_module.build([None, self.emb_size + (l_shape[1] if self.right_to_left else r_shape[1])])
         self.built = True
-
-    def call(self, inputs):
+  
+    def call(self, inputs, training):
         """
         Perfoms a partial graph convolution on the given bipartite graph.
 
@@ -172,6 +189,11 @@ class BipartiteGraphConvolution(K.Model):
             Features of the right-hand-side nodes in the bipartite graph
         scatter_out_size: 1D int tensor
             Output size (left_features.shape[0] or right_features.shape[0], unknown at compile time)
+
+        Other parameters
+        ----------------
+        training: boolean
+            Training mode indicator
         """
         left_features, edge_indices, edge_features, right_features, scatter_out_size = inputs
 
@@ -181,7 +203,7 @@ class BipartiteGraphConvolution(K.Model):
         else:
             scatter_dim = 1
             prev_features = right_features
-
+        b.clear_session()
         # compute joint features
         joint_features = self.feature_module_final(
             tf.gather(
@@ -202,17 +224,7 @@ class BipartiteGraphConvolution(K.Model):
             indices=tf.expand_dims(edge_indices[scatter_dim], axis=1),
             shape=[scatter_out_size, self.emb_size]
         )
-
-        # mean convolution
-        neighbour_count = tf.scatter_nd(
-            updates=tf.ones(shape=[tf.shape(edge_indices)[1], 1], dtype=tf.float32),
-            indices=tf.expand_dims(edge_indices[scatter_dim], axis=1),
-            shape=[scatter_out_size, 1])
-        neighbour_count = tf.where(
-            tf.equal(neighbour_count, 0),
-            tf.ones_like(neighbour_count),
-            neighbour_count)  # NaN safety trick
-        conv_output = conv_output / neighbour_count
+        conv_output = self.post_conv_module(conv_output)
 
         # apply final module
         output = self.output_module(tf.concat([
@@ -287,10 +299,8 @@ class GCNPolicy(BaseModel):
         self.cons_nfeats = 5
         self.edge_nfeats = 1
         self.var_nfeats = 19
-
         self.activation = K.activations.relu
-        self.initializer = K.initializers.Orthogonal()
-
+        self.initializer = K.initializers.orthogonal()
         # CONSTRAINT EMBEDDING
         self.cons_embedding = K.Sequential([
             PreNormLayer(n_units=self.cons_nfeats),
@@ -309,17 +319,14 @@ class GCNPolicy(BaseModel):
             K.layers.Dense(units=self.emb_size, activation=self.activation, kernel_initializer=self.initializer),
             K.layers.Dense(units=self.emb_size, activation=self.activation, kernel_initializer=self.initializer),
         ])
-
-        # GRAPH CONVOLUTIONS
         self.conv_v_to_c = BipartiteGraphConvolution(self.emb_size, self.activation, self.initializer, right_to_left=True)
         self.conv_c_to_v = BipartiteGraphConvolution(self.emb_size, self.activation, self.initializer)
-
-        # OUTPUT
+    
+                 
         self.output_module = K.Sequential([
             K.layers.Dense(units=self.emb_size, activation=self.activation, kernel_initializer=self.initializer),
             K.layers.Dense(units=1, activation=None, kernel_initializer=self.initializer, use_bias=False),
         ])
-
         # build model right-away
         self.build([
             (None, self.cons_nfeats),
@@ -336,14 +343,14 @@ class GCNPolicy(BaseModel):
         # save input signature for compilation
         self.input_signature = [
             (
-                tf.contrib.eager.TensorSpec(shape=[None, self.cons_nfeats], dtype=tf.float32),
-                tf.contrib.eager.TensorSpec(shape=[2, None], dtype=tf.int32),
-                tf.contrib.eager.TensorSpec(shape=[None, self.edge_nfeats], dtype=tf.float32),
-                tf.contrib.eager.TensorSpec(shape=[None, self.var_nfeats], dtype=tf.float32),
-                tf.contrib.eager.TensorSpec(shape=[None], dtype=tf.int32),
-                tf.contrib.eager.TensorSpec(shape=[None], dtype=tf.int32),
+                tf.TensorSpec(shape=[None, self.cons_nfeats], dtype=tf.float32),
+                tf.TensorSpec(shape=[2, None], dtype=tf.int32),
+                tf.TensorSpec(shape=[None, self.edge_nfeats], dtype=tf.float32),
+                tf.TensorSpec(shape=[None, self.var_nfeats], dtype=tf.float32),
+                tf.TensorSpec(shape=[None], dtype=tf.int32),
+                tf.TensorSpec(shape=[None], dtype=tf.int32),
             ),
-            tf.contrib.eager.TensorSpec(shape=[], dtype=tf.bool),
+            tf.TensorSpec(shape=[], dtype=tf.bool),
         ]
 
     def build(self, input_shapes):
@@ -363,7 +370,7 @@ class GCNPolicy(BaseModel):
     def pad_output(output, n_vars_per_sample, pad_value=-1e8):
         n_vars_max = tf.reduce_max(n_vars_per_sample)
 
-        output = tf.split(
+        output = tf.split( # 在logits = model.pad_output(logits, n_cands.numpy())中n_vars_per_sample对应的其实是n_cands
             value=output,
             num_or_size_splits=n_vars_per_sample,
             axis=1,
@@ -389,10 +396,6 @@ class GCNPolicy(BaseModel):
         ----------
         inputs: list of tensors
             Model input as a bipartite graph. May be batched into a stacked graph.
-        n_cons_per_sample: list of ints
-            Number of constraints for each of the samples stacked in the batch.
-        n_vars_per_sample: list of ints
-            Number of variables for each of the samples stacked in the batch.
 
         Inputs
         ------
@@ -414,29 +417,33 @@ class GCNPolicy(BaseModel):
         training: boolean
             Training mode indicator
         """
+        # tensor shapes:
+        # 最后两个本来应该是传1D tensors，但是process那里直接求和了（估计是考虑到不需要整个向量，并且为了效率，就把这两个先求和了）
+        # 其实那个batch在进来的时候就是当作一个大图进来的，从概念上就合了在一起，所以也不需要区分不同的小图
+        # (55394, 5)       (2, 363081)    (363081, 1)     (80800, 19)        (1,)               (1,)
         constraint_features, edge_indices, edge_features, variable_features, n_cons_per_sample, n_vars_per_sample = inputs
-        n_cons_total = tf.reduce_sum(n_cons_per_sample)
-        n_vars_total = tf.reduce_sum(n_vars_per_sample)
+        n_cons_total = tf.math.reduce_sum(n_cons_per_sample) # numpy=55394
+        n_vars_total = tf.math.reduce_sum(n_vars_per_sample) # numpy=80800
 
         # EMBEDDINGS
-        constraint_features = self.cons_embedding(constraint_features)
-        edge_features = self.edge_embedding(edge_features)
-        variable_features = self.var_embedding(variable_features)
+        constraint_features = self.cons_embedding(constraint_features)  #(97970, 64)
+        edge_features = self.edge_embedding(edge_features) #(664478, 1)
+        variable_features = self.var_embedding(variable_features) #=(161600, 64)
 
         # GRAPH CONVOLUTIONS
         constraint_features = self.conv_v_to_c((
-            constraint_features, edge_indices, edge_features, variable_features, n_cons_total))
-        constraint_features = self.activation(constraint_features)
+            constraint_features, edge_indices, edge_features, variable_features, n_cons_total), training)
+        constraint_features = self.activation(constraint_features)  # shape=(97970, 64), dtype=float32
 
         variable_features = self.conv_c_to_v((
-            constraint_features, edge_indices, edge_features, variable_features, n_vars_total))
-        variable_features = self.activation(variable_features)
-
+            constraint_features, edge_indices, edge_features, variable_features, n_vars_total), training)
+        variable_features = self.activation(variable_features) #(161600, 64)
+        
         # OUTPUT
         output = self.output_module(variable_features)
-        output = tf.reshape(output, [1, -1])
+        output = tf.reshape(output, [1, -1]) # shape=(1, 161600)
 
-        if n_vars_per_sample.shape[0] > 1:
+        if n_vars_per_sample.shape[0] and n_vars_per_sample.shape[0] > 1:
             output = self.pad_output(output, n_vars_per_sample)
 
         return output

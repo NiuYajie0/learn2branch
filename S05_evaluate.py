@@ -130,7 +130,7 @@ def exp_main(args):
     instances = []
     seeds = [0, 1, 2, 3, 4]
     # seeds = range(5,20)
-    gcnn_models = ['baseline']
+    gcnn_models = ['GraphConv','Lodi']
     # gcnn_models = []
     # other_models = ['extratrees_gcnn_agg', 'lambdamart_khalil', 'svmrank_khalil'] # TODO
     other_models = []
@@ -139,25 +139,25 @@ def exp_main(args):
     time_limit = 3600
 
     if args.problem == 'setcover':
-        instances += [{'type': 'small', 'path': f"data/instances/setcover/transfer_500r_1000c_0.05d/instance_{i+1}.lp"} for i in range(20)]
-        instances += [{'type': 'medium', 'path': f"data/instances/setcover/transfer_1000r_1000c_0.05d/instance_{i+1}.lp"} for i in range(20)]
-        # instances += [{'type': 'big', 'path': f"data/instances/setcover/transfer_2000r_1000c_0.05d/instance_{i+1}.lp"} for i in range(20)]
-        # gcnn_models += ['mean_convolution', 'no_prenorm']
+        # instances += [{'type': 'small', 'path': f"data/instances/setcover/transfer_500r_1000c_0.05d/instance_{i+1}.lp"} for i in range(20)]
+        # instances += [{'type': 'medium', 'path': f"data/instances/setcover/transfer_1000r_1000c_0.05d/instance_{i+1}.lp"} for i in range(20)]
+        instances += [{'type': 'big', 'path': f"data/instances/setcover/transfer_2000r_1000c_0.05d/instance_{i+1}.lp"} for i in range(20)]
+        # gcnn_models += ['mean_convolution']
 
     elif args.problem == 'cauctions':
-        instances += [{'type': 'small', 'path': f"data/instances/cauctions/transfer_100_500/instance_{i+1}.lp"} for i in range(20)]
-        instances += [{'type': 'medium', 'path': f"data/instances/cauctions/transfer_200_1000/instance_{i+1}.lp"} for i in range(20)]
-        # instances += [{'type': 'big', 'path': f"data/instances/cauctions/transfer_300_1500/instance_{i+1}.lp"} for i in range(20)]
+        # instances += [{'type': 'small', 'path': f"data/instances/cauctions/transfer_100_500/instance_{i+1}.lp"} for i in range(20)]
+        # instances += [{'type': 'medium', 'path': f"data/instances/cauctions/transfer_200_1000/instance_{i+1}.lp"} for i in range(20)]
+        instances += [{'type': 'big', 'path': f"data/instances/cauctions/transfer_300_1500/instance_{i+1}.lp"} for i in range(20)]
 
     elif args.problem == 'facilities':
-        instances += [{'type': 'small', 'path': f"data/instances/facilities/transfer_100_100_5/instance_{i+1}.lp"} for i in range(20)]
-        instances += [{'type': 'medium', 'path': f"data/instances/facilities/transfer_200_100_5/instance_{i+1}.lp"} for i in range(20)]
-        # instances += [{'type': 'big', 'path': f"data/instances/facilities/transfer_400_100_5/instance_{i+1}.lp"} for i in range(20)]
+        # instances += [{'type': 'small', 'path': f"data/instances/facilities/transfer_100_100_5/instance_{i+1}.lp"} for i in range(20)]
+        # instances += [{'type': 'medium', 'path': f"data/instances/facilities/transfer_200_100_5/instance_{i+1}.lp"} for i in range(20)]
+        instances += [{'type': 'big', 'path': f"data/instances/facilities/transfer_400_100_5/instance_{i+1}.lp"} for i in range(20)]
 
     elif args.problem == 'indset':
-        instances += [{'type': 'small', 'path': f"data/instances/indset/transfer_500_4/instance_{i+1}.lp"} for i in range(20)]
-        instances += [{'type': 'medium', 'path': f"data/instances/indset/transfer_1000_4/instance_{i+1}.lp"} for i in range(20)]
-        # instances += [{'type': 'big', 'path': f"data/instances/indset/transfer_1500_4/instance_{i+1}.lp"} for i in range(20)]
+        # instances += [{'type': 'small', 'path': f"data/instances/indset/transfer_500_4/instance_{i+1}.lp"} for i in range(20)]
+        # instances += [{'type': 'medium', 'path': f"data/instances/indset/transfer_1000_4/instance_{i+1}.lp"} for i in range(20)]
+        instances += [{'type': 'big', 'path': f"data/instances/indset/transfer_1500_4/instance_{i+1}.lp"} for i in range(20)]
 
     else:
         raise NotImplementedError
@@ -171,7 +171,7 @@ def exp_main(args):
                     'type': 'internal',
                     'name': brancher,
                     'seed': seed,
-                    'sampling_strategy': NaN,
+                    # 'sampling_strategy': NaN,
              })
     # ML baselines
     for model in other_models:
@@ -183,16 +183,16 @@ def exp_main(args):
                 'model': f'trained_models/{args.problem}/{model}/{seed}',
             })
     # GCNN models
-    for sampling_Strategy in args.sampling_strategies:
-        for model in gcnn_models:
-            for seed in seeds:
-                branching_policies.append({
-                    'type': 'gcnn',
-                    'name': model,
-                    'seed': seed,
-                    'sampling_strategy': sampling_Strategy,
-                    'parameters': f'trained_models/{args.problem}/{sampling_Strategy}/ss{args.sample_seed}/ts{seed}/best_params.pkl'
-                })
+    # for sampling_Strategy in args.sampling_strategies:
+    for model in gcnn_models:
+        for seed in seeds:
+            branching_policies.append({
+                'type': 'gcnn',
+                'name': model,
+                'seed': seed,
+                # 'sampling_strategy': args.sampling_strategies,
+                'parameters': f'trained_models/{args.problem}/{model}/ss{args.sample_seed}/ts{seed}/best_params.pkl'
+            })
 
     print(f"problem: {args.problem}")
     print(f"gpu: {args.gpu}")
@@ -211,6 +211,7 @@ def exp_main(args):
     for policy in branching_policies:
         if policy['type'] == 'gcnn':
             if policy['name'] not in loaded_models:
+                model = policy['name'] 
                 model_module = importlib.import_module(f'models.{model}.model')
                 loaded_models[policy['name']] = model_module.GCNPolicy()
             policy['model'] = loaded_models[policy['name']]
@@ -237,7 +238,7 @@ def exp_main(args):
 
     fieldnames = [
         'policy',
-        'sampling_strategy',
+        # 'sampling_strategy',
         'seed',
         'type',
         'instance',
@@ -294,7 +295,7 @@ def exp_main(args):
 
                 writer.writerow({
                     'policy': f"{policy['type']}:{policy['name']}",
-                    'sampling_strategy':policy['sampling_strategy'],
+                    # 'sampling_strategy':policy['sampling_strategy'],
                     'seed': policy['seed'],
                     'type': instance['type'],
                     'instance': instance['path'],
@@ -312,7 +313,8 @@ def exp_main(args):
                 csvfile.flush()
                 m.freeProb()
 
-                print(f"  {policy['type']}:{policy['name']}:{policy['sampling_strategy']} {policy['seed']} - {nnodes} ({nnodes+2*(ndomchgs+ncutoffs)}) nodes {nlps} lps {stime:.2f} ({walltime:.2f} wall {proctime:.2f} proc) s. {status}")
+                # print(f"  {policy['type']}:{policy['name']}:{policy['sampling_strategy']} {policy['seed']} - {nnodes} ({nnodes+2*(ndomchgs+ncutoffs)}) nodes {nlps} lps {stime:.2f} ({walltime:.2f} wall {proctime:.2f} proc) s. {status}")
+                print(f"  {policy['type']}:{policy['name']}:{policy['seed']} - {nnodes} ({nnodes+2*(ndomchgs+ncutoffs)}) nodes {nlps} lps {stime:.2f} ({walltime:.2f} wall {proctime:.2f} proc) s. {status}")
 
 
 if __name__ == '__main__':
@@ -328,12 +330,12 @@ if __name__ == '__main__':
         type=int,
         default=0,
     )
-    parser.add_argument(
-        '--sampling_strategies',
-        help='Sampling Strategies',
-        # choices=['uniform5', 'depthK', 'depthK2'],
-        default=['uniform5', 'depthK', 'depthK2']
-    )
+    # parser.add_argument(
+    #     '--sampling_strategies',
+    #     help='Sampling Strategies',
+    #     # choices=['Lodi', 'GraphConv'],
+    #     default=['Lodi', 'GraphConv']
+    # )
     parser.add_argument(
         '--sample_seed',
         help='seed of the sampled data',

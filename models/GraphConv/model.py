@@ -1,11 +1,17 @@
+from networkx.drawing.nx_pylab import draw
 import tensorflow as tf
 import tensorflow.keras as K
 import numpy as np
 import pickle
 import dgl
 import dgl.function as fn
+import dgl.nn.tensorflow as dglnn
+# from dgl.nn.tensorflow.conv.gatconv import GATConv
+from dgl.nn.tensorflow.conv.graphconv import GraphConv
 from keras import backend as b
-
+import networkx as nx
+import matplotlib.pyplot as plt
+# import pygraphviz as pgv
 
 
 class PreNormException(Exception):
@@ -56,6 +62,7 @@ class PreNormLayer(K.layers.Layer):      #  x ← (x−β)/σ 归一化
 
     def build(self, input_shapes):
         self.built = True
+        
     def call(self, input):
         if self.waiting_updates:
             self.update_stats(input)
@@ -120,126 +127,11 @@ class PreNormLayer(K.layers.Layer):      #  x ← (x−β)/σ 归一化
         self.trainable = False
 
 
-
-class BipartiteGraphConvolution(K.Model):
-
-    """
-    Partial bipartite graph convolution (either left-to-right or right-to-left).
-    """
-
-    def __init__(self, emb_size, activation, initializer, right_to_left=False):
-        super().__init__()
-        self.emb_size = emb_size
-        self.activation = activation
-        self.initializer = initializer
-        self.right_to_left = right_to_left
-
-        # feature layers
-        self.feature_module_left = K.Sequential([
-            K.layers.Dense(units=self.emb_size, activation=None, use_bias=True, kernel_initializer=self.initializer)
-        ])
-        self.feature_module_edge = K.Sequential([
-            K.layers.Dense(units=self.emb_size, activation=None, use_bias=False, kernel_initializer=self.initializer)
-        ])
-        self.feature_module_right = K.Sequential([
-            K.layers.Dense(units=self.emb_size, activation=None, use_bias=False, kernel_initializer=self.initializer)
-        ])
-        self.feature_module_final = K.Sequential([
-            PreNormLayer(1, shift=False),  # normalize after summation trick
-            K.layers.Activation(self.activation),
-            K.layers.Dense(units=self.emb_size, activation=None, kernel_initializer=self.initializer)
-        ])
-
-        self.post_conv_module = K.Sequential([
-            PreNormLayer(1, shift=False),  # normalize after convolution
-        ])
-     
-        # output_layers
-        self.output_module = K.Sequential([
-            K.layers.Dense(units=self.emb_size, activation=None, kernel_initializer=self.initializer),
-            K.layers.Activation(self.activation),
-            K.layers.Dense(units=self.emb_size, activation=None, kernel_initializer=self.initializer),
-        ])
-
-    def build(self, input_shapes):
-        l_shape, ei_shape, ev_shape, r_shape = input_shapes
-
-        self.feature_module_left.build(l_shape)
-        self.feature_module_edge.build(ev_shape)
-        self.feature_module_right.build(r_shape)
-        self.feature_module_final.build([None, self.emb_size])
-        self.post_conv_module.build([None, self.emb_size])
-        self.output_module.build([None, self.emb_size + (l_shape[1] if self.right_to_left else r_shape[1])])
-        self.built = True
-  
-    def call(self, inputs, training):
-        """
-        Perfoms a partial graph convolution on the given bipartite graph.
-
-        Inputs
-        ------
-        left_features: 2D float tensor
-            Features of the left-hand-side nodes in the bipartite graph
-        edge_indices: 2D int tensor
-            Edge indices in left-right order
-        edge_features: 2D float tensor
-            Features of the edges
-        right_features: 2D float tensor
-            Features of the right-hand-side nodes in the bipartite graph
-        scatter_out_size: 1D int tensor
-            Output size (left_features.shape[0] or right_features.shape[0], unknown at compile time)
-
-        Other parameters
-        ----------------
-        training: boolean
-            Training mode indicator
-        """
-        left_features, edge_indices, edge_features, right_features, scatter_out_size = inputs
-
-        if self.right_to_left:
-            scatter_dim = 0
-            prev_features = left_features
-        else:
-            scatter_dim = 1
-            prev_features = right_features
-        b.clear_session()
-        # compute joint features
-        joint_features = self.feature_module_final(
-            tf.gather(
-                self.feature_module_left(left_features),
-                axis=0,
-                indices=edge_indices[0]
-            ) +
-            self.feature_module_edge(edge_features) +
-            tf.gather(
-                self.feature_module_right(right_features),
-                axis=0,
-                indices=edge_indices[1])
-        )
-
-        # perform convolution
-        conv_output = tf.scatter_nd(
-            updates=joint_features,
-            indices=tf.expand_dims(edge_indices[scatter_dim], axis=1),
-            shape=[scatter_out_size, self.emb_size]
-        )
-        conv_output = self.post_conv_module(conv_output)
-
-        # apply final module
-        output = self.output_module(tf.concat([
-            conv_output,
-            prev_features,
-        ], axis=1))
-
-        return output
-
-
 class BaseModel(K.Model):
     """
     Our base model class, which implements basic save/restore and pre-training
     methods.
     """
-
     def pre_train_init(self):
         self.pre_train_init_rec(self, self.name)
         
@@ -250,10 +142,9 @@ class BaseModel(K.Model):
                 BaseModel.pre_train_init_rec(layer, f"{name}/{layer.name}")
             elif isinstance(layer, PreNormLayer):
                 layer.start_updates()
-
     def pre_train_next(self):
         return self.pre_train_next_rec(self, self.name)
-
+        
     @staticmethod
     def pre_train_next_rec(model, name):
         for layer in model.layers:
@@ -265,20 +156,17 @@ class BaseModel(K.Model):
                 layer.stop_updates()
                 return layer, f"{name}/{layer.name}"
         return None
-
     def pre_train(self, *args, **kwargs):
         try:
             self.call(*args, **kwargs)
             return False
         except PreNormException:
             return True
-
     def save_state(self, path):
         with open(path, 'wb') as f:
             for v_name in self.variables_topological_order:
                 v = [v for v in self.variables if v.name == v_name][0]
                 pickle.dump(v.numpy(), f)
-
     def restore_state(self, path):
         with open(path, 'rb') as f:
             for v_name in self.variables_topological_order:
@@ -298,8 +186,11 @@ class GCNPolicy(BaseModel):
         self.cons_nfeats = 5
         self.edge_nfeats = 1
         self.var_nfeats = 19
+        self.num_heads = 1
+        self.out_feats = 64
         self.activation = K.activations.relu
-        self.initializer = K.initializers.orthogonal()
+        self.initializer = K.initializers.Orthogonal()
+        # self.initializer = K.initializers.glorot_uniform()
         # CONSTRAINT EMBEDDING
         self.cons_embedding = K.Sequential([
             PreNormLayer(n_units=self.cons_nfeats),
@@ -318,22 +209,50 @@ class GCNPolicy(BaseModel):
             K.layers.Dense(units=self.emb_size, activation=self.activation, kernel_initializer=self.initializer),
             K.layers.Dense(units=self.emb_size, activation=self.activation, kernel_initializer=self.initializer),
         ])
-        self.conv_v_to_c = BipartiteGraphConvolution(self.emb_size, self.activation, self.initializer, right_to_left=True)
-        self.conv_c_to_v = BipartiteGraphConvolution(self.emb_size, self.activation, self.initializer)
-    
-                 
+
+        self.feature_module_left = K.Sequential([
+            K.layers.Dense(units=self.emb_size, activation=None, use_bias=True, kernel_initializer=self.initializer)
+        ])
+
+        self.feature_module_right = K.Sequential([
+            K.layers.Dense(units=self.emb_size, activation=None, use_bias=False, kernel_initializer=self.initializer)
+        ])
+        
+        self.gat_conv = dglnn.HeteroGraphConv({
+            'edge1' : dglnn.GraphConv(in_feats = 64,out_feats = 64,norm="none",weight=False, bias=False),
+            'edge2' : dglnn.GraphConv(in_feats = 64,out_feats = 64,norm="none",weight=False, bias=False)},
+            # 'edge1' : dglnn.SAGEConv(self.emb_size,self.out_feats,aggregator_type = "mean"),
+            # 'edge2' : dglnn.SAGEConv(self.emb_size,self.out_feats,aggregator_type = "mean")},
+            # 'edge1' : dglnn.GATConv(self.emb_size,self.out_feats,self.num_heads,negative_slope=0.01),
+            # 'edge2' : dglnn.GATConv(self.emb_size,self.out_feats,self.num_heads,negative_slope=0.01)},
+            aggregate='sum')
+
+
+        self.post_conv_module = K.Sequential([
+            PreNormLayer(1, shift=False),  # normalize after convolution
+        ])  
+
+        self.output_conv_module = K.Sequential([
+            K.layers.Dense(units=self.emb_size, activation=None, kernel_initializer=self.initializer),
+            K.layers.Activation(self.activation),
+            K.layers.Dense(units=self.emb_size, activation=None, kernel_initializer=self.initializer),
+        ])
+        
         self.output_module = K.Sequential([
             K.layers.Dense(units=self.emb_size, activation=self.activation, kernel_initializer=self.initializer),
             K.layers.Dense(units=1, activation=None, kernel_initializer=self.initializer, use_bias=False),
         ])
+
+
         # build model right-away
         self.build([
-            (None, self.cons_nfeats),
-            (2, None),
-            (None, self.edge_nfeats),
-            (None, self.var_nfeats),
-            (None, ),
-            (None, ),
+            (None, self.cons_nfeats), 
+            (2, None),  
+            (None, self.edge_nfeats), 
+            (None, self.var_nfeats),  
+            # (None, ),
+            (None, ), 
+            (None, ), 
         ])
 
         # save / restore fix
@@ -355,14 +274,20 @@ class GCNPolicy(BaseModel):
     def build(self, input_shapes):
         c_shape, ei_shape, ev_shape, v_shape, nc_shape, nv_shape = input_shapes
         emb_shape = [None, self.emb_size]
-
         if not self.built:
             self.cons_embedding.build(c_shape)
             self.edge_embedding.build(ev_shape)
             self.var_embedding.build(v_shape)
-            self.conv_v_to_c.build((emb_shape, ei_shape, ev_shape, emb_shape))
-            self.conv_c_to_v.build((emb_shape, ei_shape, ev_shape, emb_shape))
+            self.feature_module_left.build(emb_shape)
+            self.feature_module_right.build(emb_shape) 
+            self.gat_conv.build(emb_shape)
+            self.post_conv_module.build(emb_shape)
+            self.output_conv_module.build([None, self.emb_size + self.emb_size])
             self.output_module.build(emb_shape)
+            # self.conv_v_to_c.build((emb_shape,emb_shape))
+            # self.conv_c_to_v.build((emb_shape,emb_shape))
+            # self.post_conv_module.build([None, self.emb_size])
+            # self.output_module.build(emb_shape)
             self.built = True
 
     @staticmethod
@@ -384,7 +309,6 @@ class GCNPolicy(BaseModel):
         ], axis=0)
 
         return output
-
     def call(self, inputs, training):
         """
         Accepts stacked mini-batches, i.e. several bipartite graphs aggregated
@@ -419,41 +343,42 @@ class GCNPolicy(BaseModel):
         # tensor shapes:
         # 最后两个本来应该是传1D tensors，但是process那里直接求和了（估计是考虑到不需要整个向量，并且为了效率，就把这两个先求和了）
         # 其实那个batch在进来的时候就是当作一个大图进来的，从概念上就合了在一起，所以也不需要区分不同的小图
-        # (55394, 5)       (2, 363081)    (363081, 1)     (80800, 19)        (1,)               (1,)
+        # (55394, 5)         (2, 363081)    (363081, 1)     (80800, 19)        (1,)               (1,)
+        # (49739, 5)         (2, 339984)    (339984, 1)     (80800, 19)        (8,)               (8,)
         constraint_features, edge_indices, edge_features, variable_features, n_cons_per_sample, n_vars_per_sample = inputs
-        seed = np.random.randint(1,100)
-        # edge_features = tf.random.shuffle(edge_features,seed)
-        variable_features1 = variable_features[:,10:14]
-        variable_features1 = tf.random.shuffle(variable_features1,seed)
-        new = tf.Variable(variable_features)
-        new1 = tf.Variable(variable_features1)
-        new = new[:,10:14].assign(new1)
-        variable_features = tf.convert_to_tensor(new)
-        # constraint_features1 = constraint_features[:,4]
-        # constraint_features1 = tf.random.shuffle(constraint_features1,seed)
-        # new = tf.Variable(constraint_features)
-        # new1 = tf.Variable(constraint_features1)
-        # new = new[:,4].assign(new1)
-        # constraint_features = tf.convert_to_tensor(new)
-        
-
-        n_cons_total = tf.math.reduce_sum(n_cons_per_sample) # numpy=55394
-        n_vars_total = tf.math.reduce_sum(n_vars_per_sample) # numpy=80800
+        n_cons_total = tf.math.reduce_sum(n_cons_per_sample) # numpy=55394  #numpy=49739
+        n_vars_total = tf.math.reduce_sum(n_vars_per_sample) # numpy=80800  
 
         # EMBEDDINGS
-        constraint_features = self.cons_embedding(constraint_features)  #(97970, 64)
-        edge_features = self.edge_embedding(edge_features) #(664478, 1)
-        variable_features = self.var_embedding(variable_features) #=(161600, 64)
+        constraint_features = self.cons_embedding(constraint_features)  #(97970, 64) #(49739, 64)
+        edge_features = self.edge_embedding(edge_features) #(664478, 1)  #(339984, 1)
+        variable_features = self.var_embedding(variable_features) #=(161600, 64)  #(80800, 64)
+        
 
         # GRAPH CONVOLUTIONS
-        constraint_features = self.conv_v_to_c((
-            constraint_features, edge_indices, edge_features, variable_features, n_cons_total), training)
-        constraint_features = self.activation(constraint_features)  # shape=(97970, 64), dtype=float32
+        g = dgl.heterograph({
+            ('variables', 'edge1', 'constraints'):(edge_indices[1],edge_indices[0]),
+            ('constraints', 'edge2', 'variables'):(edge_indices[0],edge_indices[1])
+         }) 
+         
+        h_src = {"variables":self.feature_module_right(variable_features)}
+        h_dst = {"constraints":self.feature_module_left(constraint_features)}
+        h1 = self.gat_conv(g,(h_src,h_dst))
+        constraint_features1 = tf.reshape(h1["constraints"],(h1["constraints"].shape[0],-1))
+        conv_output_c = self.post_conv_module(constraint_features1)
+        constraint_features = self.output_conv_module(tf.concat([
+            conv_output_c,
+            constraint_features,
+        ], axis=1))
+        v_src = {"constraints":self.feature_module_left(constraint_features)}
+        v1 = self.gat_conv(g,(v_src, h_src))
+        variable_features1 = tf.reshape(v1["variables"],(v1["variables"].shape[0],-1))
+        conv_output_v = self.post_conv_module(variable_features1)
+        variable_features = self.output_conv_module(tf.concat([
+            conv_output_v,
+            variable_features,
+        ], axis=1))
 
-        variable_features = self.conv_c_to_v((
-            constraint_features, edge_indices, edge_features, variable_features, n_vars_total), training)
-        variable_features = self.activation(variable_features) #(161600, 64)
-        
         # OUTPUT
         output = self.output_module(variable_features)
         output = tf.reshape(output, [1, -1]) # shape=(1, 161600)

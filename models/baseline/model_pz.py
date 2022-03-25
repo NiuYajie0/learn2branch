@@ -337,12 +337,12 @@ class GCNPolicy(BaseModel):
 
         # build model right-away
         self.build([
-            (None, self.cons_nfeats),
-            (2, None),
-            (None, self.edge_nfeats),
-            (None, self.var_nfeats),
-            (None, ),
-            (None, ),
+            (None, self.cons_nfeats),  #cons_embedding
+            (2, None),  #edge_embedding
+            (None, self.edge_nfeats),  #var_embedding
+            (None, self.var_nfeats),     #conv_v_to_c
+            (None, ),   #conv_c_to_v
+            (None, ),   #output_module
         ])
 
         # save / restore fix
